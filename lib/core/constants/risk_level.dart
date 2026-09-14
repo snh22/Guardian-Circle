@@ -7,17 +7,17 @@ enum RiskLevel { low, medium, high, critical }
 
 extension RiskLevelX on RiskLevel {
   String get label => switch (this) {
-        RiskLevel.low => 'Low Risk',
-        RiskLevel.medium => 'Medium Risk',
-        RiskLevel.high => 'High Risk',
-        RiskLevel.critical => 'Critical',
+        RiskLevel.low => 'Everything looks normal',
+        RiskLevel.medium => 'Check in',
+        RiskLevel.high => 'Attention needed',
+        RiskLevel.critical => 'Emergency detected',
       };
 
   String get description => switch (this) {
-        RiskLevel.low => 'Stable location • Expected movement',
-        RiskLevel.medium => 'Routine deviation • Soft check-in suggested',
-        RiskLevel.high => 'Multiple signals agree • Please review',
-        RiskLevel.critical => 'SOS / fall-like event • Immediate action needed',
+        RiskLevel.low => 'No concerning information is shown in this preview.',
+        RiskLevel.medium => 'A change may need a caregiver check-in.',
+        RiskLevel.high => 'More than one concern needs your attention.',
+        RiskLevel.critical => 'Immediate caregiver action is recommended.',
       };
 
   /// High-contrast colors chosen for accessibility (WCAG AA+) — never rely on

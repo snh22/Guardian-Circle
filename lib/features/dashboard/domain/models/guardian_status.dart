@@ -1,4 +1,4 @@
-import '../../../../../../core/constants/risk_level.dart';
+import 'package:guardian_circle/core/constants/risk_level.dart';
 
 /// Snapshot of "is the person safe?" — the single question the whole
 /// dashboard is designed around.
@@ -66,6 +66,7 @@ class TimelineEvent {
   final String summary; // e.g. "Movement normal"
   final DateTime timestamp;
   final RiskLevel? associatedRisk;
+  final String? context;
 
   const TimelineEvent({
     required this.id,
@@ -73,6 +74,7 @@ class TimelineEvent {
     required this.summary,
     required this.timestamp,
     this.associatedRisk,
+    this.context,
   });
 }
 

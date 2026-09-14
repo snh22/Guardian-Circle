@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/theme/app_theme.dart';
-import 'features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:guardian_circle/core/theme/app_theme.dart';
+import 'package:guardian_circle/features/shell/presentation/caregiver_shell.dart';
 
 void main() {
-  runApp(const ProviderScope(child: GuardianCircleApp()));
+  runApp(
+    const ProviderScope(
+      child: GuardianCircleApp(),
+    ),
+  );
 }
 
 class GuardianCircleApp extends StatelessWidget {
@@ -16,12 +20,7 @@ class GuardianCircleApp extends StatelessWidget {
       title: 'Guardian Circle',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const DashboardScreen(),
-      routes: const {
-        // '/map'   -> LiveMapScreen (features/map)
-        // '/ble'   -> BleConnectionScreen (features/ble)
-        // '/trips' -> PlannedTripsScreen (features/trips)
-      },
+      home: const CaregiverShell(),
     );
   }
 }

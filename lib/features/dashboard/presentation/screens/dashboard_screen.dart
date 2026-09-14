@@ -1,134 +1,209 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../providers/dashboard_provider.dart';
-import '../widgets/risk_status_card.dart';
-import '../widgets/event_timeline.dart';
-import '../widgets/quick_actions.dart';
+import 'package:guardian_circle/core/constants/risk_level.dart';
+import 'package:guardian_circle/core/navigation/caregiver_destination.dart';
+import 'package:guardian_circle/features/dashboard/presentation/widgets/event_timeline.dart';
+import 'package:guardian_circle/features/dashboard/presentation/widgets/quick_actions.dart';
+import 'package:guardian_circle/features/dashboard/presentation/widgets/risk_status_card.dart';
+import 'package:guardian_circle/features/dashboard/presentation/widgets/status_metric_card.dart';
+import 'package:guardian_circle/features/dashboard/providers/dashboard_provider.dart';
+import 'package:guardian_circle/features/wearable/presentation/wearable_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
+  final ValueChanged<CaregiverDestination> onNavigate;
+
+  const DashboardScreen({super.key, required this.onNavigate});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusAsync = ref.watch(guardianStatusProvider);
-    final events = ref.watch(timelineControllerProvider);
+    final presentation = ref.watch(dashboardPresentationProvider);
+    final status = presentation.status;
+    final isCritical = status.riskLevel == RiskLevel.critical;
 
+    return SafeArea(
+      child: Scaffold(
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+          children: [
+            // 1. GREETING & CAREGIVER
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good afternoon 👋',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Caring for ${status.userName}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.black54,
+                          ),
+                    ),
+                  ],
+                ),
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFF1F3A5F).withValues(alpha: 0.1),
+                  child: const Icon(Icons.person_outline_rounded, color: Color(0xFF1F3A5F)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-    // React to Critical risk the instant it's true — never require the
-    // caregiver to notice a color change on their own.
-    ref.listen(shouldShowEscalationModalProvider, (previous, next) {
-      if (next && previous != true) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (_) => const EscalationAlertScreen(),
-          ),
-        );
-      }
-    });
+            // 2. HONEST PREVIEW NOTICE BANNER
+            _PreviewNoticeBanner(message: presentation.monitoringMessage),
+            const SizedBox(height: 20),
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Guardian Circle'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.watch_outlined),
-            tooltip: 'Wearable connection',
-            onPressed: () => Navigator.of(context).pushNamed('/ble'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: statusAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => _ErrorState(message: err.toString()),
-        data: (status) => RefreshIndicator(
-          onRefresh: () async {
-            // Trigger a manual re-poll of the risk engine / event stream.
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(status.userName, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(
-                'Last updated ${_relativeTime(status.lastUpdated)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.black54),
-              ),
-              const SizedBox(height: 16),
-              RiskStatusCard(
-                status: status,
-                onTap: () => Navigator.of(context).pushNamed('/map'),
-              ),
-              const SizedBox(height: 20),
-              QuickActionsRow(
-                onViewMap: () => Navigator.of(context).pushNamed('/map'),
-                onCall: () => _placeCall(context),
-                onAcknowledge: () =>
-                    ref.read(timelineControllerProvider.notifier).acknowledgeLatest(),
-              ),
-              const SizedBox(height: 28),
-              Text('Recent Activity', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: EventTimelineList(events: events),
+            // 3. OVERALL SAFETY STATUS CARD
+            Text(
+              'Safety status',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            RiskStatusCard(
+              status: status,
+              isPreview: presentation.isPreview,
+              locationText: presentation.locationDisplay,
+              movementText: presentation.movementDisplay,
+            ),
+            const SizedBox(height: 22),
+
+            // 4. CORE OBSERVATION PILLARS: LOCATION, MOVEMENT, WEARABLE
+            Text(
+              'Observations',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            StatusMetricCard(
+              icon: Icons.location_on_outlined,
+              title: 'Location',
+              status: presentation.locationDisplay,
+              subtext: presentation.locationSubtext,
+              iconColor: const Color(0xFF1E8E5A),
+              onTap: () => onNavigate(CaregiverDestination.location),
+            ),
+            const SizedBox(height: 10),
+            StatusMetricCard(
+              icon: Icons.directions_walk_rounded,
+              title: 'Movement',
+              status: presentation.movementDisplay,
+              subtext: presentation.movementSubtext,
+              iconColor: const Color(0xFF1F3A5F),
+            ),
+            const SizedBox(height: 10),
+            StatusMetricCard(
+              icon: Icons.watch_outlined,
+              title: 'Wearable',
+              status: presentation.wearableDisplay,
+              subtext: presentation.wearableSubtext,
+              iconColor: Colors.black54,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WearableScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // 5. CONTEXTUAL ACTIONS
+            Text(
+              'Actions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            QuickActions(
+              actions: isCritical
+                  ? [
+                      DashboardAction(
+                        label: 'View emergency details',
+                        icon: Icons.emergency_rounded,
+                        isPrimary: true,
+                        customColor: const Color(0xFFD32F2F),
+                        onPressed: () => onNavigate(CaregiverDestination.alerts),
+                      ),
+                      DashboardAction(
+                        label: 'View location',
+                        icon: Icons.location_on_outlined,
+                        onPressed: () => onNavigate(CaregiverDestination.location),
+                      ),
+                    ]
+                  : [
+                      DashboardAction(
+                        label: 'View location',
+                        icon: Icons.location_on_outlined,
+                        isPrimary: true,
+                        onPressed: () => onNavigate(CaregiverDestination.location),
+                      ),
+                      DashboardAction(
+                        label: 'View planned trips',
+                        icon: Icons.event_note_outlined,
+                        onPressed: () => onNavigate(CaregiverDestination.plans),
+                      ),
+                      DashboardAction(
+                        label: 'View alerts & history',
+                        icon: Icons.notifications_none_rounded,
+                        onPressed: () => onNavigate(CaregiverDestination.alerts),
+                      ),
+                    ],
+            ),
+            const SizedBox(height: 28),
+
+            // 6. RECENT ACTIVITY TIMELINE
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent activity',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                TextButton(
+                  onPressed: () => onNavigate(CaregiverDestination.alerts),
+                  child: const Text('View log'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: EventTimelineList(
+                  events: presentation.recentActivity,
+                  isPreview: presentation.isPreview,
+                  onViewAll: () => onNavigate(CaregiverDestination.alerts),
                 ),
               ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pushNamed('/trips'),
-                child: const Text('Manage Planned Trips'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+            ),
+            const SizedBox(height: 24),
 
-  Future<void> _placeCall(BuildContext context) async {
-    // Predefined caregiver contact number — replace with linked user's
-    // configured emergency contact.
-    final uri = Uri(scheme: 'tel', path: '+911234567890');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  String _relativeTime(DateTime t) {
-    final diff = DateTime.now().difference(t);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    return '${diff.inHours} hr ago';
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final String message;
-  const _ErrorState({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.black38),
-            const SizedBox(height: 12),
-            Text('Unable to reach Guardian Circle.\n$message',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge),
+            // 7. PLANNED TRIP CARD
+            Text(
+              'Planned trip',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            _PlannedTripCard(
+              label: presentation.plannedTrip?.label ?? 'No trip scheduled',
+              destination: presentation.plannedTrip?.destinationZone ?? 'Unavailable',
+              start: presentation.plannedTrip?.start,
+              isPreview: presentation.isPreview,
+              onTap: () => onNavigate(CaregiverDestination.plans),
+            ),
           ],
         ),
       ),
@@ -136,80 +211,111 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-/// Full-screen, hard-to-dismiss escalation view for CRITICAL events
-/// (strong SOS / fall-like). Per the validation-plan design rule, this only
-/// fires on high-confidence signals — ambiguous single taps stay at
-/// Medium/High with a soft check-in instead.
-class EscalationAlertScreen extends ConsumerWidget {
-  const EscalationAlertScreen({super.key});
+class _PreviewNoticeBanner extends StatelessWidget {
+  final String message;
+
+  const _PreviewNoticeBanner({required this.message});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(guardianStatusProvider).valueOrNull;
-
-    return PopScope(
-      canPop: false, // must be explicitly acknowledged, not swiped away
-      child: Scaffold(
-        backgroundColor: const Color(0xFFD32F2F),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.emergency_rounded, color: Colors.white, size: 80),
-                const SizedBox(height: 20),
-                Text(
-                  'CRITICAL ALERT',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        color: Colors.white,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  status?.latestEvent.summary ?? 'SOS / fall-like event detected',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 36),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final uri = Uri(scheme: 'tel', path: '+911234567890');
-                      if (await canLaunchUrl(uri)) await launchUrl(uri);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFFD32F2F),
-                    ),
-                    icon: const Icon(Icons.call_rounded),
-                    label: const Text('Call Now'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      ref.read(timelineControllerProvider.notifier).acknowledgeLatest();
-                      Navigator.of(context).pop();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white, width: 1.5),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Acknowledge — I\'m handling this'),
-                  ),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0EFF9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF5D5B8D).withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: Color(0xFF5D5B8D), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF3C3A68),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlannedTripCard extends StatelessWidget {
+  final String label;
+  final String destination;
+  final DateTime? start;
+  final bool isPreview;
+  final VoidCallback onTap;
+
+  const _PlannedTripCard({
+    required this.label,
+    required this.destination,
+    this.start,
+    required this.isPreview,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr = start != null ? _formatTripTime(start!) : 'Time not set';
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F3A5F).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.calendar_today_outlined, color: Color(0xFF1F3A5F), size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$destination • $timeStr',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.black54,
+                            fontSize: 13,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.black38),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatTripTime(DateTime t) {
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final minute = t.minute.toString().padLeft(2, '0');
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
   }
 }

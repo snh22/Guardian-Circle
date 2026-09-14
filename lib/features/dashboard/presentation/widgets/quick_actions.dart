@@ -1,51 +1,70 @@
 import 'package:flutter/material.dart';
 
-class QuickActionsRow extends StatelessWidget {
-  final VoidCallback onViewMap;
-  final VoidCallback onCall;
-  final VoidCallback onAcknowledge;
-  final bool acknowledgeEnabled;
+class DashboardAction {
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool isPrimary;
+  final Color? customColor;
 
-  const QuickActionsRow({
-    super.key,
-    required this.onViewMap,
-    required this.onCall,
-    required this.onAcknowledge,
-    this.acknowledgeEnabled = true,
+  const DashboardAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.isPrimary = false,
+    this.customColor,
   });
+}
+
+class QuickActions extends StatelessWidget {
+  final List<DashboardAction> actions;
+
+  const QuickActions({super.key, required this.actions});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onViewMap,
-            icon: const Icon(Icons.map_outlined),
-            label: const Text('View Map'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onCall,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E8E5A),
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.call_rounded),
-            label: const Text('Call'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: acknowledgeEnabled ? onAcknowledge : null,
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Acknowledge'),
-          ),
-        ),
+        for (int i = 0; i < actions.length; i++) ...[
+          _ActionButton(action: actions[i]),
+          if (i < actions.length - 1) const SizedBox(height: 10),
+        ],
       ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final DashboardAction action;
+
+  const _ActionButton({required this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    if (action.isPrimary) {
+      return ElevatedButton.icon(
+        onPressed: action.onPressed,
+        icon: Icon(action.icon),
+        label: Text(action.label),
+        style: action.customColor != null
+            ? ElevatedButton.styleFrom(
+                backgroundColor: action.customColor,
+                foregroundColor: Colors.white,
+              )
+            : null,
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: action.onPressed,
+      icon: Icon(action.icon),
+      label: Text(action.label),
+      style: action.customColor != null
+          ? OutlinedButton.styleFrom(
+              foregroundColor: action.customColor,
+              side: BorderSide(color: action.customColor!, width: 1.5),
+            )
+          : null,
     );
   }
 }

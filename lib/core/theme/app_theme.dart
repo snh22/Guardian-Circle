@@ -11,6 +11,7 @@ class AppTheme {
   static const Color primary = Color(0xFF1F3A5F); // deep steady blue
   static const Color surface = Color(0xFFF7F8FA);
   static const Color onSurfaceMuted = Color(0xFF5B6472);
+  static const Color preview = Color(0xFF5D5B8D);
 
   static ThemeData get light {
     final base = ThemeData(
@@ -41,6 +42,13 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         titleTextStyle: textTheme.headlineMedium,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 76,
+        labelTextStyle: WidgetStatePropertyAll(
+          textTheme.labelLarge?.copyWith(fontSize: 12) ??
+              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
