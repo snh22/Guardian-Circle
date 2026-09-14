@@ -1,36 +1,43 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/risk_level.dart';
+import '../../../core/constants/risk_level.dart';
+import '../../../core/network/api_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../domain/models/guardian_status.dart';
 
-/// -----------------------------------------------------------------------
-/// WHY RIVERPOD
-/// Guardian Circle's dashboard is fed by three independent async sources
-/// that all need to converge into one screen:
-///   1. BLE characteristic notifications from the band (movement, SOS)
-///   2. GPS / geofence stream from the phone
-///   3. Backend risk-engine result, delivered over WebSocket with a REST
-///      polling fallback
-/// Riverpod's StreamProvider/AsyncNotifier composition lets each source own
-/// its lifecycle (retry, dispose, reconnect) while the dashboard just
-/// watches a single combined provider — no manual setState plumbing, and
-/// screens rebuild only for the slice of state they actually watch.
-/// -----------------------------------------------------------------------
+/// ----------------------------------------------------------------------
+/// Real backend wiring. This file used to hold two Stream.empty()
+/// placeholders — this is the swap for the real thing.
+///
+/// BLE/GPS sensor input isn't built yet, so the risk request below sends
+/// a hardcoded "everything normal" reading just to prove the round-trip
+/// works. The RISK LEVEL that comes back is real (computed by the actual
+/// backend) — only the input feeding it is a placeholder.
+/// ----------------------------------------------------------------------
 
-/// Raw stream of risk-engine results (backend WebSocket).
-/// Swap the mock generator for a real ws:// connection in RiskEngineService.
-final riskEngineStreamProvider = StreamProvider<RiskLevel>((ref) {
-  return const Stream<RiskLevel>.empty(); // wire to RiskEngineService.stream()
+/// POST /api/v1/risk/analyze
+final riskAnalysisProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  return ApiService.analyzeRisk(
+    movement: 'normal',
+    locationStatus: 'known',
+    tripStatus: 'none',
+    eventType: 'movement',
+  );
 });
 
-/// Raw stream of timeline events (movement, BLE, SOS, fall-like, trips).
-final eventTimelineStreamProvider = StreamProvider<TimelineEvent>((ref) {
-  return const Stream<TimelineEvent>.empty(); // wire to EventService.stream()
+/// GET /api/v1/events/user/{user_id}
+/// Named exactly `dashboardEventsProvider` because dashboard_screen.dart
+/// already watches it under that name.
+final dashboardEventsProvider =
+    FutureProvider.autoDispose<List<TimelineEvent>>((ref) async {
+  final user = ref.watch(authControllerProvider).user;
+  if (user == null) return const [];
+  return ApiService.getEventsForUser(user.userId);
 });
 
 /// Band telemetry (connection state + battery) — populated by the BLE
-/// feature's own provider (see features/ble/providers). Re-exposed here so
-/// the dashboard doesn't need to depend on the BLE module directly.
+/// feature's own provider later. Re-exposed here so the dashboard doesn't
+/// need to depend on the BLE module directly.
 final bandTelemetryProvider = StateProvider<BandTelemetry>((ref) {
   return const BandTelemetry(connectionState: BandConnectionState.disconnected);
 });
@@ -40,64 +47,55 @@ final safeZoneStateProvider = StateProvider<SafeZoneState>((ref) {
 });
 
 /// The single source of truth the Dashboard screen watches.
-/// Combines risk level + zone + latest event + band battery into one
-/// immutable snapshot, recomputed whenever any input changes.
 final guardianStatusProvider = Provider<AsyncValue<GuardianStatus>>((ref) {
-  final riskAsync = ref.watch(riskEngineStreamProvider);
-  final eventAsync = ref.watch(eventTimelineStreamProvider);
+  final riskAsync = ref.watch(riskAnalysisProvider);
+  final eventsAsync = ref.watch(dashboardEventsProvider);
   final zone = ref.watch(safeZoneStateProvider);
   final band = ref.watch(bandTelemetryProvider);
+  final user = ref.watch(authControllerProvider).user;
 
-  // Until the first real values arrive, show a safe, honest placeholder
-  // rather than blocking the whole dashboard on every stream.
-  final risk = riskAsync.valueOrNull ?? RiskLevel.low;
-  final event = eventAsync.valueOrNull ??
-      TimelineEvent(
-        id: 'placeholder',
-        kind: EventKind.movement,
-        summary: 'Waiting for first signal…',
-        timestamp: DateTime.now(),
-      );
+  if (riskAsync.isLoading || eventsAsync.isLoading) {
+    return const AsyncValue.loading();
+  }
 
-  final error = riskAsync.error ?? eventAsync.error;
+  final error = riskAsync.error ?? eventsAsync.error;
   if (error != null) {
     return AsyncValue.error(error, StackTrace.current);
   }
 
+  final riskData = riskAsync.valueOrNull;
+  final risk = riskData != null
+      ? riskLevelFromString(riskData['risk_level'] as String? ?? 'low')
+      : RiskLevel.low;
+
+  final events = eventsAsync.valueOrNull ?? const <TimelineEvent>[];
+  final latestEvent = events.isNotEmpty
+      ? events.first
+      : TimelineEvent(
+          id: 'placeholder',
+          kind: EventKind.movement,
+          summary: 'Waiting for first signal…',
+          timestamp: DateTime.now(),
+        );
+
   return AsyncValue.data(
     GuardianStatus(
       riskLevel: risk,
-      userName: 'Kamala Devi', // replace with authenticated caregiver's linked user
+      userName: user?.name ?? 'Guardian Circle',
       safeZoneState: zone,
-      latestEvent: event,
+      latestEvent: latestEvent,
       batteryPercent: band.batteryPercent,
       lastUpdated: DateTime.now(),
     ),
   );
 });
 
-/// Rolling event history for the timeline widget (kept separate from the
-/// single-status provider so a long list doesn't force full-card rebuilds).
-class TimelineController extends StateNotifier<List<TimelineEvent>> {
-  TimelineController() : super(const []);
-
-  static const int _maxRetained = 50;
-
-  void addEvent(TimelineEvent event) {
-    state = [event, ...state].take(_maxRetained).toList();
-  }
-
-  void acknowledgeLatest() {
-    if (state.isEmpty) return;
-    // In production this calls the backend ack endpoint, then optimistically
-    // updates local state so the caregiver gets instant feedback.
-  }
+/// Refetches risk + events from the backend. Called by the dashboard's
+/// pull-to-refresh, the acknowledge button, and the escalation screen.
+Future<void> refreshDashboard(WidgetRef ref) async {
+  ref.invalidate(riskAnalysisProvider);
+  ref.invalidate(dashboardEventsProvider);
 }
-
-final timelineControllerProvider =
-    StateNotifierProvider<TimelineController, List<TimelineEvent>>(
-  (ref) => TimelineController(),
-);
 
 /// True whenever the current risk level demands the full-screen escalation
 /// modal (Critical: strong SOS / fall-like event).

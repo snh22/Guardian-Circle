@@ -42,7 +42,7 @@ dependencies:
   fl_chart: ^0.68.0            # timeline / battery graphs
   permission_handler: ^11.3.1
   url_launcher: ^6.3.0         # "Call" quick action
-  vibration: ^2.0.0            # local feedback mirroring band vibration
+  vibration: ^3.2.1            # local feedback mirroring band vibration
 
 dev_dependencies:
   flutter_test:
