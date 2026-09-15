@@ -9,6 +9,9 @@ class FallEventService {
   static const String acknowledgeUrl =
       'https://guardian-ka-circle-backend.onrender.com/acknowledge';
 
+  static const String guardianCircleUrl =
+      'https://guardian-ka-circle-backend.onrender.com/guardian-circle';
+
   Future<Map<String, dynamic>?> fetchLatestEvent() async {
     final response = await http.get(
       Uri.parse(backendUrl),
@@ -39,5 +42,52 @@ class FallEventService {
         'Acknowledge failed: ${response.statusCode}',
       );
     }
+  }
+
+  // ============================================================
+  // GUARDIAN CIRCLE
+  // ============================================================
+
+  Future<double> fetchGuardianCircleRange() async {
+    final response = await http.get(
+      Uri.parse(guardianCircleUrl),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Guardian Circle backend error: '
+        '${response.statusCode}',
+      );
+    }
+
+    final data = jsonDecode(response.body);
+
+    return (data['radius'] as num).toDouble();
+  }
+
+  Future<double> updateGuardianCircleRange(
+    double radius,
+  ) async {
+    final response = await http.post(
+      Uri.parse(guardianCircleUrl),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'radius': radius,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Guardian Circle update failed: '
+        '${response.statusCode}: '
+        '${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body);
+
+    return (data['radius'] as num).toDouble();
   }
 }

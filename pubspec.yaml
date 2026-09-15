@@ -44,6 +44,7 @@ dependencies:
   url_launcher: ^6.3.0         # "Call" quick action
   vibration: 3.2.1            # local feedback mirroring band vibration
   http: ^1.6.0
+  flutter_ble_peripheral: ^3.1.0
 
 dev_dependencies:
   flutter_test:
