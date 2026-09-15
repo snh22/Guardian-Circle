@@ -1,4 +1,17 @@
-import '../../../../../../core/constants/risk_level.dart';
+import '../../../../core/constants/risk_level.dart';
+
+/// Parses the risk-engine's string value (e.g. "low", "medium") into the
+/// app's RiskLevel enum. Backend contract: lowercase strings matching the
+/// four escalation levels in the project's risk-engine design.
+RiskLevel riskLevelFromString(String value) {
+  return switch (value.toLowerCase()) {
+    'low' => RiskLevel.low,
+    'medium' => RiskLevel.medium,
+    'high' => RiskLevel.high,
+    'critical' => RiskLevel.critical,
+    _ => RiskLevel.low,
+  };
+}
 
 /// Snapshot of "is the person safe?" — the single question the whole
 /// dashboard is designed around.
@@ -60,6 +73,37 @@ class SafeZoneState {
 
 enum EventKind { movement, location, ble, sos, fallLike, checkIn, tripStart, tripEnd }
 
+EventKind _eventKindFromString(String value) {
+  return switch (value.toLowerCase()) {
+    'movement' => EventKind.movement,
+    'location' => EventKind.location,
+    'ble' => EventKind.ble,
+    'sos' => EventKind.sos,
+    'fall_like' || 'falllike' => EventKind.fallLike,
+    'check_in' || 'checkin' => EventKind.checkIn,
+    'trip_start' || 'tripstart' => EventKind.tripStart,
+    'trip_end' || 'tripend' => EventKind.tripEnd,
+    _ => EventKind.movement,
+  };
+}
+
+/// Turns the backend's raw event_type string into a readable phrase for
+/// the timeline UI, since the backend doesn't store display text itself.
+String _summaryFromEventType(String eventType) {
+  return switch (eventType.toLowerCase()) {
+    'movement' => 'Movement normal',
+    'unusual_movement' || 'unusual movement' => 'Unusual movement detected',
+    'location' => 'Location updated',
+    'ble' => 'Band connected',
+    'sos' => 'SOS triggered',
+    'fall_like' || 'fall' => 'Possible fall detected',
+    'check_in' => 'Check-in received',
+    'trip_start' => 'Planned trip started',
+    'trip_end' => 'Planned trip ended',
+    _ => eventType.replaceAll('_', ' '),
+  };
+}
+
 class TimelineEvent {
   final String id;
   final EventKind kind;
@@ -74,25 +118,26 @@ class TimelineEvent {
     required this.timestamp,
     this.associatedRisk,
   });
+
+  /// The REAL backend's EventResponse has no summary text field — only
+  /// { "event_id": 1, "user_id": 1, "event_type": "movement",
+  ///   "risk_level": "LOW", "timestamp": "2026-09-13T10:24:00" }.
+  /// So this synthesizes a human-readable summary from event_type on
+  /// the Flutter side rather than expecting the backend to provide one.
+  factory TimelineEvent.fromJson(Map<String, dynamic> json) {
+    final eventType = json['event_type'] as String? ?? 'movement';
+    return TimelineEvent(
+      id: '${json['event_id']}',
+      kind: _eventKindFromString(eventType),
+      summary: _summaryFromEventType(eventType),
+      timestamp: DateTime.parse(json['timestamp'] as String).toLocal(),
+      associatedRisk: json['risk_level'] != null
+          ? riskLevelFromString(json['risk_level'] as String)
+          : null,
+    );
+  }
 }
 
-class PlannedTrip {
-  final String id;
-  final String label;
-  final DateTime start;
-  final DateTime end;
-  final String destinationZone;
-  final bool isActive;
-
-  const PlannedTrip({
-    required this.id,
-    required this.label,
-    required this.start,
-    required this.end,
-    required this.destinationZone,
-    this.isActive = false,
-  });
-}
 
 enum BandConnectionState { disconnected, scanning, connecting, connected }
 

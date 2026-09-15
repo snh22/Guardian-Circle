@@ -3,11 +3,20 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_ble_peripheral/flutter_ble_peripheral.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/widgets/auth_gate.dart';
+import 'features/ble/presentation/screens/ble_connection_screen.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'features/map/presentation/screens/live_map_screen.dart';
+import 'features/trips/presentation/screens/trips_screen.dart';
 
 void main() {
+  // Stops google_fonts from trying to download fonts over the network at
+  // runtime. Falls back to the closest bundled system font.
+  GoogleFonts.config.allowRuntimeFetching = false;
+
   runApp(
     const ProviderScope(
       child: GuardianCircleApp(),
@@ -24,19 +33,41 @@ class GuardianCircleApp extends StatelessWidget {
       title: 'Guardian Circle',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const GuardianHome(),
+      home: const AuthGate(),
+      routes: {
+        '/map': (_) => const LiveMapScreen(),
+        '/ble': (_) => const BleConnectionScreen(),
+        '/trips': (_) => const TripsScreen(),
+        '/dashboard': (_) => const DashboardScreen(),
+        '/guardian-ble': (_) => const GuardianBleAdvertiserScreen(),
+      },
     );
   }
 }
 
-class GuardianHome extends StatefulWidget {
-  const GuardianHome({super.key});
+// ============================================================================
+// GUARDIAN BLE ADVERTISER
+//
+// The caretaker device advertises a tiny BLE manufacturer packet.
+//
+// Manufacturer ID: 0x1234
+// Identifier byte: 0x47 ('G')
+//
+// The patient phone scans for this advertisement to identify the Guardian.
+// ============================================================================
+
+class GuardianBleAdvertiserScreen extends StatefulWidget {
+  const GuardianBleAdvertiserScreen({
+    super.key,
+  });
 
   @override
-  State<GuardianHome> createState() => _GuardianHomeState();
+  State<GuardianBleAdvertiserScreen> createState() =>
+      _GuardianBleAdvertiserScreenState();
 }
 
-class _GuardianHomeState extends State<GuardianHome> {
+class _GuardianBleAdvertiserScreenState
+    extends State<GuardianBleAdvertiserScreen> {
   final FlutterBlePeripheral blePeripheral =
       FlutterBlePeripheral();
 
@@ -45,7 +76,6 @@ class _GuardianHomeState extends State<GuardianHome> {
 
   String bleStatus = 'Checking Bluetooth...';
 
-  // Guardian Circle manufacturer ID.
   static const int guardianManufacturerId = 0x1234;
 
   @override
@@ -59,7 +89,9 @@ class _GuardianHomeState extends State<GuardianHome> {
       final isSupported =
           await blePeripheral.isSupported;
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         supported = isSupported;
@@ -67,11 +99,14 @@ class _GuardianHomeState extends State<GuardianHome> {
         if (isSupported) {
           bleStatus = 'BLE advertising supported';
         } else {
-          bleStatus = 'BLE advertising not supported';
+          bleStatus =
+              'BLE advertising not supported';
         }
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         bleStatus = 'BLE check failed: $e';
@@ -96,7 +131,9 @@ class _GuardianHomeState extends State<GuardianHome> {
       final permission =
           await blePeripheral.requestPermission();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       final permissionString =
           permission.toString().toLowerCase();
@@ -111,48 +148,30 @@ class _GuardianHomeState extends State<GuardianHome> {
         return;
       }
 
-      /*
-       * WINDOWS BLE REQUIREMENT
-       *
-       * Windows requires either:
-       *
-       *   manufacturerData
-       *
-       * OR
-       *
-       *   serviceData
-       *
-       * to be present.
-       *
-       * We previously tried advertising only the service UUID,
-       * which Windows rejected with:
-       *
-       * invalid_arguments:
-       * Windows can only advertise manufactureData and
-       * serviceData, one of which has to be set
-       *
-       * We now use only ONE manufacturer byte.
-       *
-       * This keeps the advertisement extremely small and
-       * avoids the previous DATA_TOO_LARGE problem.
-       *
-       * 0x47 = ASCII 'G'
-       *
-       * The patient app will identify the Guardian using:
-       *
-       * manufacturer ID = 0x1234
-       * manufacturer byte = 0x47
-       */
+      // Windows requires manufacturerData or serviceData.
+      //
+      // Keep the packet extremely small:
+      //
+      // Manufacturer ID = 0x1234
+      // Identifier      = 0x47 ('G')
+      //
+      // The patient app uses this combination to identify
+      // the Guardian Circle device.
+
       final result = await blePeripheral.start(
         advertiseData: AdvertiseDataCore(
-          manufacturerId: guardianManufacturerId,
-          manufacturerData: Uint8List.fromList([
+          manufacturerId:
+              guardianManufacturerId,
+          manufacturerData:
+              Uint8List.fromList([
             0x47,
           ]),
         ),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         advertising = true;
@@ -168,11 +187,14 @@ class _GuardianHomeState extends State<GuardianHome> {
         ),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         advertising = false;
-        bleStatus = 'BLE start failed: $e';
+        bleStatus =
+            'BLE start failed: $e';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,11 +211,14 @@ class _GuardianHomeState extends State<GuardianHome> {
     try {
       await blePeripheral.stop();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         advertising = false;
-        bleStatus = 'BLE advertising stopped';
+        bleStatus =
+            'BLE advertising stopped';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,10 +229,13 @@ class _GuardianHomeState extends State<GuardianHome> {
         ),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        bleStatus = 'BLE stop failed: $e';
+        bleStatus =
+            'BLE stop failed: $e';
       });
     }
   }
@@ -222,7 +250,9 @@ class _GuardianHomeState extends State<GuardianHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Guardian Circle'),
+        title: const Text(
+          'Guardian BLE',
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -231,14 +261,14 @@ class _GuardianHomeState extends State<GuardianHome> {
             const SizedBox(height: 30),
 
             const Icon(
-              Icons.shield,
+              Icons.bluetooth,
               size: 80,
             ),
 
             const SizedBox(height: 20),
 
             const Text(
-              'Guardian Circle',
+              'Guardian Circle BLE',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -280,9 +310,10 @@ class _GuardianHomeState extends State<GuardianHome> {
             const SizedBox(height: 30),
 
             ElevatedButton.icon(
-              onPressed: advertising
-                  ? null
-                  : startGuardianBle,
+              onPressed:
+                  advertising
+                      ? null
+                      : startGuardianBle,
               icon: const Icon(
                 Icons.bluetooth,
               ),
@@ -296,9 +327,10 @@ class _GuardianHomeState extends State<GuardianHome> {
             const SizedBox(height: 15),
 
             ElevatedButton.icon(
-              onPressed: advertising
-                  ? stopGuardianBle
-                  : null,
+              onPressed:
+                  advertising
+                      ? stopGuardianBle
+                      : null,
               icon: const Icon(
                 Icons.bluetooth_disabled,
               ),
@@ -312,32 +344,6 @@ class _GuardianHomeState extends State<GuardianHome> {
             const Divider(),
 
             const SizedBox(height: 20),
-
-            const Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const DashboardScreen(),
-                  ),
-                );
-              },
-              child: const Text(
-                'OPEN GUARDIAN DASHBOARD',
-              ),
-            ),
-
-            const SizedBox(height: 30),
 
             const Text(
               'Guardian Circle BLE Identifier',

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../../domain/models/guardian_status.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../services/fall_event_service.dart';
 import '../widgets/risk_status_card.dart';
@@ -136,249 +137,321 @@ class _DashboardScreenState
   @override
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(guardianStatusProvider);
-    final events = ref.watch(timelineControllerProvider);
+    final eventsAsync = ref.watch(dashboardEventsProvider);
 
-    ref.listen(shouldShowEscalationModalProvider, (previous, next) {
-      if (next && previous != true) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (_) => const EscalationAlertScreen(),
-          ),
-        );
-      }
-    });
+    final events =
+        eventsAsync.valueOrNull ?? const <TimelineEvent>[];
+
+    // React to Critical risk immediately.
+    ref.listen(
+      shouldShowEscalationModalProvider,
+      (previous, next) {
+        if (next && previous != true) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => const EscalationAlertScreen(),
+            ),
+          );
+        }
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Guardian Circle'),
+        title: const Text(
+          'Guardian Circle',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.watch_outlined),
+            icon: const Icon(
+              Icons.watch_outlined,
+              color: Colors.black87,
+            ),
             tooltip: 'Wearable connection',
-            onPressed: () => Navigator.of(context).pushNamed('/ble'),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/ble');
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
+            icon: const Icon(
+              Icons.logout_outlined,
+              color: Colors.black87,
+            ),
+            tooltip: 'Log out',
+            onPressed: () {
+              ref
+                  .read(authControllerProvider.notifier)
+                  .logout();
+            },
           ),
         ],
       ),
       body: statusAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        error: (err, _) => _ErrorState(
-          message: err.toString(),
-        ),
-        data: (status) => RefreshIndicator(
-          onRefresh: () async {
-            await _loadGuardianCircleRange();
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                status.userName,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Last updated ${_relativeTime(status.lastUpdated)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(
-                      color: Colors.black54,
-                    ),
-              ),
-
-              const SizedBox(height: 16),
-
-              RiskStatusCard(
-                status: status,
-                onTap: () => Navigator.of(context).pushNamed('/map'),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ==================================================
-              // GUARDIAN CIRCLE SETTINGS
-              // ==================================================
-
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.my_location_rounded,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Guardian Circle',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ],
+        loading: () {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+        error: (err, _) {
+          return _ErrorState(
+            message: err.toString(),
+          );
+        },
+        data: (status) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              await _loadGuardianCircleRange();
+              refreshDashboard(ref);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  status.userName,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
                       ),
+                ),
 
-                      const SizedBox(height: 8),
+                const SizedBox(height: 4),
 
-                      Text(
-                        'Alert me when the patient moves '
-                        'outside this range.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium,
+                Text(
+                  'Last updated '
+                  '${_relativeTime(status.lastUpdated)}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(
+                        color: Colors.black54,
                       ),
+                ),
 
-                      const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-                      const Text(
-                        'Circle radius',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                RiskStatusCard(
+                  status: status,
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/map');
+                  },
+                ),
 
-                      const SizedBox(height: 6),
+                const SizedBox(height: 20),
 
-                      if (guardianCircleLoading)
-                        const LinearProgressIndicator()
-                      else
-                        DropdownButtonFormField<double>(
-                          initialValue: guardianCircleRange,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            prefixIcon:
-                                Icon(Icons.radar_rounded),
-                          ),
-                          items:
-                              guardianCircleRanges.map(
-                            (range) {
-                              return DropdownMenuItem<double>(
-                                value: range,
-                                child: Text(
-                                  '${range.toStringAsFixed(0)} metres',
-                                ),
-                              );
-                            },
-                          ).toList(),
-                          onChanged: guardianCircleUpdating
-                              ? null
-                              : (value) {
-                                  if (value == null) {
-                                    return;
-                                  }
+                // ==================================================
+                // GUARDIAN CIRCLE SETTINGS
+                // ==================================================
 
-                                  changeGuardianCircleRange(
-                                    value,
-                                  );
-                                },
-                        ),
-
-                      const SizedBox(height: 12),
-
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(10),
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                        ),
-                        child: Row(
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.circle_outlined,
-                              size: 20,
+                            Icon(
+                              Icons.my_location_rounded,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Current radius: '
-                                '${guardianCircleRange.toStringAsFixed(0)} m',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Guardian Circle',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
-                            if (guardianCircleUpdating)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
                           ],
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(height: 8),
+
+                        Text(
+                          'Alert me when the patient moves '
+                          'outside this range.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium,
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        const Text(
+                          'Circle radius',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        if (guardianCircleLoading)
+                          const LinearProgressIndicator()
+                        else
+                          DropdownButtonFormField<double>(
+                            initialValue:
+                                guardianCircleRange,
+                            decoration:
+                                const InputDecoration(
+                              border: OutlineInputBorder(),
+                              prefixIcon:
+                                  Icon(Icons.radar_rounded),
+                            ),
+                            items:
+                                guardianCircleRanges.map(
+                              (range) {
+                                return DropdownMenuItem<double>(
+                                  value: range,
+                                  child: Text(
+                                    '${range.toStringAsFixed(0)} metres',
+                                  ),
+                                );
+                              },
+                            ).toList(),
+                            onChanged:
+                                guardianCircleUpdating
+                                    ? null
+                                    : (value) {
+                                        if (value == null) {
+                                          return;
+                                        }
+
+                                        changeGuardianCircleRange(
+                                          value,
+                                        );
+                                      },
+                          ),
+
+                        const SizedBox(height: 12),
+
+                        Container(
+                          width: double.infinity,
+                          padding:
+                              const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(10),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.circle_outlined,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Current radius: '
+                                  '${guardianCircleRange.toStringAsFixed(0)} m',
+                                  style: const TextStyle(
+                                    fontWeight:
+                                        FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              if (guardianCircleUpdating)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              QuickActionsRow(
-                onViewMap: () =>
-                    Navigator.of(context).pushNamed('/map'),
-                onCall: () => _placeCall(context),
-                onAcknowledge: () => ref
-                    .read(
-                      timelineControllerProvider.notifier,
-                    )
-                    .acknowledgeLatest(),
-              ),
+                // ==================================================
+                // QUICK ACTIONS
+                // ==================================================
 
-              const SizedBox(height: 28),
-
-              Text(
-                'Recent Activity',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-
-              const SizedBox(height: 12),
-
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: EventTimelineList(events: events),
+                QuickActionsRow(
+                  onViewMap: () {
+                    Navigator.of(context).pushNamed('/map');
+                  },
+                  onCall: () {
+                    _placeCall(context);
+                  },
+                  onAcknowledge: () {
+                    refreshDashboard(ref);
+                  },
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 28),
 
-              OutlinedButton(
-                onPressed: () =>
-                    Navigator.of(context).pushNamed('/trips'),
-                child: const Text(
-                  'Manage Planned Trips',
+                Text(
+                  'Recent Activity',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
-              ),
-            ],
-          ),
-        ),
+
+                const SizedBox(height: 12),
+
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: EventTimelineList(
+                      events: events,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context)
+                        .pushNamed('/trips');
+                  },
+                  child: const Text(
+                    'Manage Planned Trips',
+                    style: TextStyle(
+                      color: Color(0xFF1F3A5F),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
+
+  // ============================================================
+  // CALL CAREGIVER
+  // ============================================================
 
   Future<void> _placeCall(BuildContext context) async {
     final uri = Uri(
@@ -390,6 +463,10 @@ class _DashboardScreenState
       await launchUrl(uri);
     }
   }
+
+  // ============================================================
+  // RELATIVE TIME
+  // ============================================================
 
   String _relativeTime(DateTime t) {
     final diff = DateTime.now().difference(t);
@@ -405,6 +482,10 @@ class _DashboardScreenState
     return '${diff.inHours} hr ago';
   }
 }
+
+// ================================================================
+// ERROR STATE
+// ================================================================
 
 class _ErrorState extends StatelessWidget {
   final String message;
@@ -430,7 +511,12 @@ class _ErrorState extends StatelessWidget {
             Text(
               'Unable to reach Guardian Circle.\n$message',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(
+                    color: Colors.black87,
+                  ),
             ),
           ],
         ),
@@ -439,9 +525,14 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-/// Full-screen, hard-to-dismiss escalation view for CRITICAL events.
+// ================================================================
+// CRITICAL ESCALATION SCREEN
+// ================================================================
+
 class EscalationAlertScreen extends ConsumerWidget {
-  const EscalationAlertScreen({super.key});
+  const EscalationAlertScreen({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -456,24 +547,31 @@ class EscalationAlertScreen extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.emergency_rounded,
                   color: Colors.white,
                   size: 80,
                 ),
+
                 const SizedBox(height: 20),
+
                 Text(
                   'CRITICAL ALERT',
+                  textAlign: TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
                       .headlineLarge
                       ?.copyWith(
                         color: Colors.white,
+                        fontWeight: FontWeight.w700,
                       ),
                 ),
+
                 const SizedBox(height: 8),
+
                 Text(
                   status?.latestEvent.summary ??
                       'SOS / fall-like event detected',
@@ -485,7 +583,9 @@ class EscalationAlertScreen extends ConsumerWidget {
                         color: Colors.white,
                       ),
                 ),
+
                 const SizedBox(height: 36),
+
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -503,24 +603,25 @@ class EscalationAlertScreen extends ConsumerWidget {
                       backgroundColor: Colors.white,
                       foregroundColor:
                           const Color(0xFFD32F2F),
+                      minimumSize:
+                          const Size.fromHeight(56),
                     ),
                     icon: const Icon(
                       Icons.call_rounded,
                     ),
-                    label: const Text('Call Now'),
+                    label: const Text(
+                      'Call Now',
+                    ),
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () {
-                      ref
-                          .read(
-                            timelineControllerProvider.notifier,
-                          )
-                          .acknowledgeLatest();
-
+                      refreshDashboard(ref);
                       Navigator.of(context).pop();
                     },
                     style: OutlinedButton.styleFrom(
@@ -529,6 +630,8 @@ class EscalationAlertScreen extends ConsumerWidget {
                         width: 1.5,
                       ),
                       foregroundColor: Colors.white,
+                      minimumSize:
+                          const Size.fromHeight(56),
                     ),
                     child: const Text(
                       'Acknowledge — I\'m handling this',
