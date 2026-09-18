@@ -6,13 +6,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/domain/models/guardian_status.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 
-/// TEMPORARY placeholder "home" coordinates for the safe-zone distance
-/// check below, until a real configurable safe-zone is wired up.
 const double _placeholderHomeLat = 28.6139;
 const double _placeholderHomeLng = 77.2090;
 const double _safeZoneRadiusMeters = 500;
 
-/// Requests permission and gets a single current GPS fix.
 Future<Position> getCurrentPosition() async {
   final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
@@ -46,8 +43,6 @@ Future<Position> getCurrentPosition() async {
   );
 }
 
-/// Fetches the current position, posts it to the backend, and updates
-/// the shared safeZoneStateProvider.
 final currentLocationProvider =
     FutureProvider.autoDispose<Position>((ref) async {
   final position = await getCurrentPosition();
@@ -55,7 +50,6 @@ final currentLocationProvider =
   final user = ref.read(authControllerProvider).user;
 
   if (user != null) {
-    // Send this user's current GPS location to the backend.
     ApiService.postLocation(
       userId: user.userId,
       latitude: position.latitude,
@@ -80,20 +74,9 @@ final currentLocationProvider =
   return position;
 });
 
-/// Fetches the latest location reported by the elderly user's phone.
-///
-/// For the current demo:
-/// Elderly User ID = 3
-///
-/// Flow:
-/// Flutter caregiver
-///       ↓
-/// GET /api/v1/location/latest/3
-///       ↓
-/// FastAPI
-///       ↓
-/// PostgreSQL
 final elderlyLocationProvider =
     FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
-  return ApiService.getLatestLocation(3);
+  // Backend automatically finds the elderly user
+  // linked to the currently logged-in caretaker.
+  return ApiService.getLatestLocation();
 });

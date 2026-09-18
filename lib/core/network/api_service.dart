@@ -5,9 +5,7 @@ import 'api_client.dart';
 import 'api_endpoints.dart';
 
 /// Every backend call goes through this class — screens and providers
-/// never touch Dio directly. Matches the real FastAPI backend's routes
-/// (auth.py, users.py, risk.py, events.py) as inspected from the actual
-/// backend code, not a guessed contract.
+/// never touch Dio directly.
 class ApiService {
   static Future<dynamic> healthCheck() async {
     final response = await ApiClient.dio.get(ApiEndpoints.health);
@@ -19,16 +17,19 @@ class ApiService {
   // ---------------------------------------------------------------------
 
   /// POST /api/v1/auth/login
-  /// Returns the raw access token string. Throws DioException on 401
-  /// (invalid credentials) — let the caller catch and show a message.
+  /// Returns the raw access token string.
   static Future<String> login({
     required String email,
     required String password,
   }) async {
     final response = await ApiClient.dio.post(
       ApiEndpoints.login,
-      data: {'email': email, 'password': password},
+      data: {
+        'email': email,
+        'password': password,
+      },
     );
+
     return response.data['access_token'] as String;
   }
 
@@ -36,22 +37,23 @@ class ApiService {
   // Stage 4 — Current user
   // ---------------------------------------------------------------------
 
-  /// GET /api/v1/users/me — requires the Bearer token to already be set
-  /// via TokenHolder (ApiClient's interceptor attaches it automatically).
+  /// GET /api/v1/users/me
+  /// Requires the Bearer token.
   static Future<AppUser> getCurrentUser() async {
-    final response = await ApiClient.dio.get(ApiEndpoints.currentUser);
-    return AppUser.fromJson(response.data as Map<String, dynamic>);
+    final response = await ApiClient.dio.get(
+      ApiEndpoints.currentUser,
+    );
+
+    return AppUser.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 
   // ---------------------------------------------------------------------
   // Stage 5 — Risk engine
   // ---------------------------------------------------------------------
 
-  /// POST /api/v1/risk/analyze — no auth required on this one endpoint.
-  /// Backend expects: movement, location_status, trip_status, event_type
-  /// (all free-text strings the backend lowercases itself) and returns:
-  /// { "risk_level": "LOW"|"MEDIUM"|"HIGH"|"CRITICAL", "reason": [...],
-  ///   "recommended_action": "..." }
+  /// POST /api/v1/risk/analyze
   static Future<Map<String, dynamic>> analyzeRisk({
     required String movement,
     required String locationStatus,
@@ -67,6 +69,7 @@ class ApiService {
         'event_type': eventType,
       },
     );
+
     return response.data as Map<String, dynamic>;
   }
 
@@ -74,26 +77,31 @@ class ApiService {
   // Stage 6 — Events
   // ---------------------------------------------------------------------
 
-  /// GET /api/v1/events/user/{user_id} — requires auth.
-  /// Backend events have NO summary text field (only event_type,
-  /// risk_level, timestamp) — TimelineEvent.fromJson synthesizes a
-  /// readable summary from event_type on the Flutter side.
-  static Future<List<TimelineEvent>> getEventsForUser(int userId) async {
-    final response =
-        await ApiClient.dio.get(ApiEndpoints.eventsForUser('$userId'));
+  /// GET /api/v1/events/user/{user_id}
+  static Future<List<TimelineEvent>> getEventsForUser(
+    int userId,
+  ) async {
+    final response = await ApiClient.dio.get(
+      ApiEndpoints.eventsForUser('$userId'),
+    );
+
     final list = response.data as List<dynamic>;
+
     return list
-        .map((json) => TimelineEvent.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => TimelineEvent.fromJson(
+            json as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
-
-  // Stage 8: getAlertsForUser(userId), resolveAlert(alertId)
 
   // ---------------------------------------------------------------------
   // Stage 7 — Location
   // ---------------------------------------------------------------------
 
-  /// POST /api/v1/location — sends the phone's current GPS fix.
+  /// POST /api/v1/location
+  /// Sends the phone's current GPS location.
   static Future<void> postLocation({
     required int userId,
     required double latitude,
@@ -109,13 +117,18 @@ class ApiService {
     );
   }
 
-  /// GET /api/v1/location/latest/{user_id}
-  /// Returns null if no location has ever been recorded for this user
-  /// (backend responds 404 in that case).
-  static Future<Map<String, dynamic>?> getLatestLocation(int userId) async {
+  /// GET /api/v1/location/latest
+  ///
+  /// The backend automatically identifies the elderly user
+  /// linked to the currently logged-in caretaker.
+  ///
+  /// No elderly user ID is hard-coded here.
+  static Future<Map<String, dynamic>?> getLatestLocation() async {
     try {
-      final response =
-          await ApiClient.dio.get(ApiEndpoints.locationLatest('$userId'));
+      final response = await ApiClient.dio.get(
+        '/api/v1/location/latest',
+      );
+
       return response.data as Map<String, dynamic>;
     } catch (_) {
       return null;
@@ -141,21 +154,32 @@ class ApiService {
         'status': 'planned',
       },
     );
-    return PlannedTrip.fromJson(response.data as Map<String, dynamic>);
+
+    return PlannedTrip.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 
   /// GET /api/v1/trips/user/{user_id}
-  static Future<List<PlannedTrip>> getTripsForUser(int userId) async {
-    final response =
-        await ApiClient.dio.get(ApiEndpoints.tripsForUser('$userId'));
+  static Future<List<PlannedTrip>> getTripsForUser(
+    int userId,
+  ) async {
+    final response = await ApiClient.dio.get(
+      ApiEndpoints.tripsForUser('$userId'),
+    );
+
     final list = response.data as List<dynamic>;
+
     return list
-        .map((json) => PlannedTrip.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => PlannedTrip.fromJson(
+            json as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
-  /// PUT /api/v1/trips/{trip_id} — commonly used just to change status,
-  /// e.g. "planned" -> "active" -> "completed"/"cancelled".
+  /// PUT /api/v1/trips/{trip_id}
   static Future<PlannedTrip> updateTrip({
     required int tripId,
     String? destination,
@@ -165,17 +189,24 @@ class ApiService {
     final response = await ApiClient.dio.put(
       ApiEndpoints.tripById('$tripId'),
       data: {
-        if (destination != null) 'destination': destination,
+        if (destination != null)
+          'destination': destination,
         if (startTime != null)
           'start_time': startTime.toUtc().toIso8601String(),
-        if (status != null) 'status': status,
+        if (status != null)
+          'status': status,
       },
     );
-    return PlannedTrip.fromJson(response.data as Map<String, dynamic>);
+
+    return PlannedTrip.fromJson(
+      response.data as Map<String, dynamic>,
+    );
   }
 
   /// DELETE /api/v1/trips/{trip_id}
   static Future<void> deleteTrip(int tripId) async {
-    await ApiClient.dio.delete(ApiEndpoints.tripById('$tripId'));
+    await ApiClient.dio.delete(
+      ApiEndpoints.tripById('$tripId'),
+    );
   }
 }
