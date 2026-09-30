@@ -7,6 +7,7 @@ from app.database import base
 from app.routes import (
     auth,
     users,
+    profile,
     location,
     trips,
     events,
@@ -29,6 +30,7 @@ app = FastAPI(
 # Include API routers
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(profile.router)
 app.include_router(location.router)
 app.include_router(trips.router)
 app.include_router(events.router)

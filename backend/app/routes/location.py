@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.database.database import get_db
 from app.models.location import Location
+from app.models.profile import ElderlyProfile
 from app.models.user import User
 from app.schemas.location import LocationCreate, LocationResponse
 
@@ -68,6 +69,39 @@ def get_latest_location(
         raise HTTPException(
             status_code=404,
             detail="No location found"
+        )
+
+    return location
+
+
+@router.get(
+    "/latest",
+    response_model=LocationResponse
+)
+def get_latest_elderly_location(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    profile = db.query(ElderlyProfile).filter(
+        ElderlyProfile.caretaker_id == current_user.user_id
+    ).first()
+
+    if not profile:
+        raise HTTPException(
+            status_code=404,
+            detail="No elderly user linked to this caretaker"
+        )
+
+    location = db.query(Location).filter(
+        Location.user_id == profile.user_id
+    ).order_by(
+        Location.timestamp.desc()
+    ).first()
+
+    if not location:
+        raise HTTPException(
+            status_code=404,
+            detail="No location found for linked elderly user"
         )
 
     return location
