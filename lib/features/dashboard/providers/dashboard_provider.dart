@@ -21,8 +21,7 @@ final fallEventServiceProvider = Provider<FallEventService>((ref) {
 // ACKNOWLEDGED FALL EVENT
 // ================================================================
 
-final acknowledgedEventIdProvider =
-    StateProvider<String?>((ref) {
+final acknowledgedEventIdProvider = StateProvider<String?>((ref) {
   return null;
 });
 
@@ -58,6 +57,55 @@ final dashboardEventsProvider =
     return ApiService.getEventsForUser(user.userId);
   },
 );
+
+// ================================================================
+// BACKEND ALERT POLLING
+// ================================================================
+//
+// Checks the MAIN Guardian Circle backend every 3 seconds.
+// User ID 3 = current demo elderly user.
+//
+
+final activeAlertProvider =
+    StreamProvider.autoDispose<Map<String, dynamic>?>((ref) async* {
+  while (true) {
+    try {
+      final alerts = await ApiService.getAlertsForUser(3);
+
+      Map<String, dynamic>? activeAlert;
+
+      for (final item in alerts) {
+        if (item is! Map) continue;
+
+        final alert = Map<String, dynamic>.from(item);
+
+        final status =
+            alert['status']?.toString().toLowerCase();
+
+        final risk =
+            alert['risk_level']?.toString().toLowerCase();
+
+        if (status == 'active' &&
+            (risk == 'critical' || risk == 'high')) {
+          activeAlert = alert;
+          break;
+        }
+      }
+
+      yield activeAlert;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Alert polling error: $e');
+      }
+
+      yield null;
+    }
+
+    await Future.delayed(
+      const Duration(seconds: 3),
+    );
+  }
+});
 
 // ================================================================
 // FALL EVENT STREAM
@@ -189,8 +237,7 @@ final guardianStatusProvider =
   final backendRisk =
       riskData != null
           ? riskLevelFromString(
-              riskData['risk_level']
-                      as String? ??
+              riskData['risk_level'] as String? ??
                   'low',
             )
           : RiskLevel.low;
@@ -295,7 +342,7 @@ Future<void> refreshDashboard(
 }
 
 // ================================================================
-// ESCALATION MODAL
+// OLD ESCALATION PROVIDER
 // ================================================================
 
 final shouldShowEscalationModalProvider =

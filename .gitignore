@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Patient app generated files
+patient_app/build/
+patient_app/lib/main.dart.backup

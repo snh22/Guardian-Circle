@@ -66,8 +66,24 @@ class _SensorPageState extends State<SensorPage> {
   // 0x47 = ASCII 'G'
   static const int guardianIdentifierByte = 0x47;
 
-  static const String backendUrl =
-      'https://guardian-ka-circle-backend.onrender.com/fall';
+  // ============================================================
+  // GUARDIAN CIRCLE BACKEND
+  // ============================================================
+
+  // Android emulator -> Mac localhost
+  static const String eventsUrl =
+    'https://guardian-circle.onrender.com/api/v1/events';
+
+  static const String alertsUrl =
+    'https://guardian-circle.onrender.com/api/v1/alerts';
+
+  // Elderly Test user in PostgreSQL
+  static const int elderlyUserId = 1;
+
+  // Paste your FRESH JWT here.
+  // DO NOT share this token with anyone.
+  static const String accessToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzkwODQ2NTc5fQ.3faMLIdbH5p16L1A2Spgu42TPCkaFjhL4sDi7Ab68qE';
 
   @override
   void initState() {
@@ -99,23 +115,64 @@ class _SensorPageState extends State<SensorPage> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse(backendUrl),
+      // STEP 1: Send fall event
+      final eventResponse = await http.post(
+        Uri.parse(eventsUrl),
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
         },
         body: jsonEncode({
-          'event': 'fall',
-          'risk': 'critical',
+          'user_id': elderlyUserId,
+          'event_type': 'fall',
+          'risk_level': 'critical',
         }),
+      );
+
+      if (eventResponse.statusCode != 200) {
+        if (!mounted) return;
+
+        automaticFallSent = false;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Fall event failed: '
+              '${eventResponse.statusCode}\n'
+              '${eventResponse.body}',
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      // STEP 2: Create caretaker alert
+      final alertUri = Uri.parse(
+        '$alertsUrl'
+        '?user_id=$elderlyUserId'
+        '&risk_level=critical'
+        '&reason=Fall%20detected%20by%20patient%20sensor',
+      );
+
+      debugPrint('ALERT URL: $alertUri');
+
+      final alertResponse = await http.post(
+        alertUri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
       );
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
+      if (alertResponse.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('AUTOMATIC FALL ALERT SENT'),
+            content: Text(
+              'FALL DETECTED — CARETAKER ALERT SENT',
+            ),
           ),
         );
 
@@ -127,7 +184,9 @@ class _SensorPageState extends State<SensorPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Automatic alert failed: ${response.statusCode}',
+              'Alert creation failed: '
+              '${alertResponse.statusCode}\n'
+              '${alertResponse.body}',
             ),
           ),
         );
@@ -154,55 +213,96 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Future<void> sendTestFall() async {
-    setState(() {
-      sendingFall = true;
-    });
+  setState(() {
+    sendingFall = true;
+  });
 
-    try {
-      final response = await http.post(
-        Uri.parse(backendUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'event': 'fall',
-          'risk': 'critical',
-        }),
-      );
+  try {
+    // STEP 1: Send fall event
+    final eventResponse = await http.post(
+      Uri.parse(eventsUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode({
+        'user_id': elderlyUserId,
+        'event_type': 'fall',
+        'risk_level': 'critical',
+      }),
+    );
 
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fall event sent successfully'),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Server error: ${response.statusCode}',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
+    if (eventResponse.statusCode != 200) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Connection error: $e'),
+          content: Text(
+            'Fall event failed: '
+            '${eventResponse.statusCode}\n'
+            '${eventResponse.body}',
+          ),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          sendingFall = false;
-        });
-      }
+
+      return;
+    }
+
+    // STEP 2: Create caretaker alert
+    final alertUri = Uri.parse(
+      '$alertsUrl'
+      '?user_id=$elderlyUserId'
+      '&risk_level=critical'
+      '&reason=Fall%20detected%20by%20patient%20sensor',
+    );
+
+    final alertResponse = await http.post(
+      alertUri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (!mounted) return;
+
+    if (alertResponse.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'FALL DETECTED — CARETAKER ALERT SENT',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Alert creation failed: '
+            '${alertResponse.statusCode}\n'
+            '${alertResponse.body}',
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Connection error: $e',
+        ),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        sendingFall = false;
+      });
     }
   }
+}
 
   // ============================================================
   // GPS

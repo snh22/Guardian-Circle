@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../domain/models/guardian_status.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../../core/network/api_service.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../services/fall_event_service.dart';
 import '../widgets/risk_status_card.dart';
 import '../widgets/event_timeline.dart';
 import '../widgets/quick_actions.dart';
@@ -19,143 +22,133 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState
     extends ConsumerState<DashboardScreen> {
-  // ============================================================
-  // GUARDIAN CIRCLE
-  // ============================================================
+  Timer? _alertTimer;
 
-  double guardianCircleRange = 10.0;
+  // Current demo elderly user in the backend.
+  // This is the elderly user whose alerts/location are being monitored.
+  static const int elderlyUserId = 1;
 
-  bool guardianCircleLoading = true;
-  bool guardianCircleUpdating = false;
-
-  static const List<double> guardianCircleRanges = [
-    5.0,
-    10.0,
-    15.0,
-    20.0,
-  ];
-
-  final FallEventService _fallEventService =
-      FallEventService();
+  int? _lastShownAlertId;
 
   @override
   void initState() {
     super.initState();
 
-    _loadGuardianCircleRange();
+    // Check for backend alerts periodically.
+    _startAlertChecking();
   }
 
-  Future<void> _loadGuardianCircleRange() async {
-    try {
-      final range =
-          await _fallEventService.fetchGuardianCircleRange();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        guardianCircleRange = range;
-        guardianCircleLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        guardianCircleLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not load Guardian Circle settings: $e',
-          ),
-        ),
-      );
-    }
+  @override
+  void dispose() {
+    _alertTimer?.cancel();
+    super.dispose();
   }
 
-  Future<void> changeGuardianCircleRange(
-    double newRange,
-  ) async {
-    if (guardianCircleUpdating) {
-      return;
-    }
+  // ============================================================
+  // BACKEND ALERT CHECK
+  // ============================================================
 
-    final previousRange = guardianCircleRange;
+  void _startAlertChecking() {
+    _checkForAlerts();
 
-    setState(() {
-      guardianCircleRange = newRange;
-      guardianCircleUpdating = true;
-    });
+    _alertTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) {
+        _checkForAlerts();
+      },
+    );
+  }
+
+  Future<void> _checkForAlerts() async {
+    if (!mounted) return;
 
     try {
-      final updatedRange =
-          await _fallEventService.updateGuardianCircleRange(
-        newRange,
-      );
+      final alerts =
+          await ApiService.getAlertsForUser(elderlyUserId);
 
-      if (!mounted) {
+      if (!mounted || alerts.isEmpty) {
         return;
       }
 
-      setState(() {
-        guardianCircleRange = updatedRange;
-        guardianCircleUpdating = false;
-      });
+      // Find the newest active critical/high alert.
+      Map<String, dynamic>? activeAlert;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Guardian Circle set to '
-            '${updatedRange.toStringAsFixed(0)} metres',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) {
+      for (final item in alerts) {
+        if (item is! Map) continue;
+
+        final alert =
+            Map<String, dynamic>.from(item);
+
+        final status =
+            alert['status']?.toString().toLowerCase();
+
+        final risk =
+            alert['risk_level']?.toString().toLowerCase();
+
+        if (status == 'active' &&
+            (risk == 'critical' || risk == 'high')) {
+          activeAlert = alert;
+          break;
+        }
+      }
+
+      if (activeAlert == null) {
         return;
       }
 
-      setState(() {
-        guardianCircleRange = previousRange;
-        guardianCircleUpdating = false;
-      });
+      final alertIdValue =
+          activeAlert['alert_id'];
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update Guardian Circle: $e',
+      if (alertIdValue == null) {
+        return;
+      }
+
+      final alertId =
+          int.tryParse(alertIdValue.toString());
+
+      if (alertId == null) {
+        return;
+      }
+
+      // Don't repeatedly open the same alert.
+      if (_lastShownAlertId == alertId) {
+        return;
+      }
+
+      _lastShownAlertId = alertId;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => EscalationAlertScreen(
+            alertId: alertId,
+            alertData: activeAlert!,
           ),
         ),
       );
+
+      // Allow a future alert to appear after returning.
+      if (mounted) {
+        _lastShownAlertId = null;
+        refreshDashboard(ref);
+      }
+    } catch (_) {
+      // Keep dashboard running even if an alert check fails.
+      // The normal dashboard remains usable.
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusAsync = ref.watch(guardianStatusProvider);
-    final eventsAsync = ref.watch(dashboardEventsProvider);
+    final statusAsync =
+        ref.watch(guardianStatusProvider);
+
+    final eventsAsync =
+        ref.watch(dashboardEventsProvider);
 
     final events =
-        eventsAsync.valueOrNull ?? const <TimelineEvent>[];
-
-    // React to Critical risk immediately.
-    ref.listen(
-      shouldShowEscalationModalProvider,
-      (previous, next) {
-        if (next && previous != true) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => const EscalationAlertScreen(),
-            ),
-          );
-        }
-      },
-    );
+        eventsAsync.valueOrNull ??
+            const <TimelineEvent>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -185,7 +178,9 @@ class _DashboardScreenState
             tooltip: 'Log out',
             onPressed: () {
               ref
-                  .read(authControllerProvider.notifier)
+                  .read(
+                    authControllerProvider.notifier,
+                  )
                   .logout();
             },
           ),
@@ -205,8 +200,8 @@ class _DashboardScreenState
         data: (status) {
           return RefreshIndicator(
             onRefresh: () async {
-              await _loadGuardianCircleRange();
               refreshDashboard(ref);
+              await _checkForAlerts();
             },
             child: ListView(
               padding: const EdgeInsets.all(20),
@@ -237,151 +232,16 @@ class _DashboardScreenState
 
                 const SizedBox(height: 16),
 
+                // ==================================================
+                // RISK STATUS
+                // ==================================================
+
                 RiskStatusCard(
                   status: status,
                   onTap: () {
-                    Navigator.of(context).pushNamed('/map');
+                    Navigator.of(context)
+                        .pushNamed('/map');
                   },
-                ),
-
-                const SizedBox(height: 20),
-
-                // ==================================================
-                // GUARDIAN CIRCLE SETTINGS
-                // ==================================================
-
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.my_location_rounded,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Guardian Circle',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        Text(
-                          'Alert me when the patient moves '
-                          'outside this range.',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium,
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        const Text(
-                          'Circle radius',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        if (guardianCircleLoading)
-                          const LinearProgressIndicator()
-                        else
-                          DropdownButtonFormField<double>(
-                            initialValue:
-                                guardianCircleRange,
-                            decoration:
-                                const InputDecoration(
-                              border: OutlineInputBorder(),
-                              prefixIcon:
-                                  Icon(Icons.radar_rounded),
-                            ),
-                            items:
-                                guardianCircleRanges.map(
-                              (range) {
-                                return DropdownMenuItem<double>(
-                                  value: range,
-                                  child: Text(
-                                    '${range.toStringAsFixed(0)} metres',
-                                  ),
-                                );
-                              },
-                            ).toList(),
-                            onChanged:
-                                guardianCircleUpdating
-                                    ? null
-                                    : (value) {
-                                        if (value == null) {
-                                          return;
-                                        }
-
-                                        changeGuardianCircleRange(
-                                          value,
-                                        );
-                                      },
-                          ),
-
-                        const SizedBox(height: 12),
-
-                        Container(
-                          width: double.infinity,
-                          padding:
-                              const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(10),
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.circle_outlined,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Current radius: '
-                                  '${guardianCircleRange.toStringAsFixed(0)} m',
-                                  style: const TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              if (guardianCircleUpdating)
-                                const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
 
                 const SizedBox(height: 20),
@@ -392,17 +252,22 @@ class _DashboardScreenState
 
                 QuickActionsRow(
                   onViewMap: () {
-                    Navigator.of(context).pushNamed('/map');
+                    Navigator.of(context)
+                        .pushNamed('/map');
                   },
                   onCall: () {
                     _placeCall(context);
                   },
                   onAcknowledge: () {
-                    refreshDashboard(ref);
+                    _checkForAlerts();
                   },
                 ),
 
                 const SizedBox(height: 28),
+
+                // ==================================================
+                // RECENT ACTIVITY
+                // ==================================================
 
                 Text(
                   'Recent Activity',
@@ -419,7 +284,8 @@ class _DashboardScreenState
 
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding:
+                        const EdgeInsets.all(16),
                     child: EventTimelineList(
                       events: events,
                     ),
@@ -427,6 +293,34 @@ class _DashboardScreenState
                 ),
 
                 const SizedBox(height: 12),
+
+                // ==================================================
+                // MAP / GPS
+                // ==================================================
+
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context)
+                        .pushNamed('/map');
+                  },
+                  icon: const Icon(
+                    Icons.location_on_outlined,
+                  ),
+                  label: const Text(
+                    'View Live Location',
+                  ),
+                  style:
+                      OutlinedButton.styleFrom(
+                    minimumSize:
+                        const Size.fromHeight(50),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ==================================================
+                // TRIPS
+                // ==================================================
 
                 OutlinedButton(
                   onPressed: () {
@@ -450,10 +344,12 @@ class _DashboardScreenState
   }
 
   // ============================================================
-  // CALL CAREGIVER
+  // CALL
   // ============================================================
 
-  Future<void> _placeCall(BuildContext context) async {
+  Future<void> _placeCall(
+    BuildContext context,
+  ) async {
     final uri = Uri(
       scheme: 'tel',
       path: '+911234567890',
@@ -469,7 +365,8 @@ class _DashboardScreenState
   // ============================================================
 
   String _relativeTime(DateTime t) {
-    final diff = DateTime.now().difference(t);
+    final diff =
+        DateTime.now().difference(t);
 
     if (diff.inSeconds < 60) {
       return 'just now';
@@ -498,9 +395,11 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding:
+            const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: [
             const Icon(
               Icons.cloud_off_rounded,
@@ -510,7 +409,8 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Unable to reach Guardian Circle.\n$message',
-              textAlign: TextAlign.center,
+              textAlign:
+                  TextAlign.center,
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge
@@ -529,23 +429,39 @@ class _ErrorState extends StatelessWidget {
 // CRITICAL ESCALATION SCREEN
 // ================================================================
 
-class EscalationAlertScreen extends ConsumerWidget {
+class EscalationAlertScreen
+    extends ConsumerWidget {
+  final int alertId;
+  final Map<String, dynamic> alertData;
+
   const EscalationAlertScreen({
     super.key,
+    required this.alertId,
+    required this.alertData,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status =
-        ref.watch(guardianStatusProvider).valueOrNull;
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final reason =
+        alertData['reason']?.toString() ??
+            'SOS / fall-like event detected';
+
+    final risk =
+        alertData['risk_level']?.toString() ??
+            'CRITICAL';
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFD32F2F),
+        backgroundColor:
+            const Color(0xFFD32F2F),
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(28),
+            padding:
+                const EdgeInsets.all(28),
             child: Column(
               mainAxisAlignment:
                   MainAxisAlignment.center,
@@ -560,51 +476,67 @@ class EscalationAlertScreen extends ConsumerWidget {
 
                 Text(
                   'CRITICAL ALERT',
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
                       .headlineLarge
                       ?.copyWith(
                         color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                        fontWeight:
+                            FontWeight.w700,
                       ),
                 ),
 
                 const SizedBox(height: 8),
 
                 Text(
-                  status?.latestEvent.summary ??
-                      'SOS / fall-like event detected',
-                  textAlign: TextAlign.center,
+                  '$risk ALERT\n$reason',
+                  textAlign:
+                      TextAlign.center,
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
                       ?.copyWith(
                         color: Colors.white,
+                        fontWeight:
+                            FontWeight.w500,
                       ),
                 ),
 
                 const SizedBox(height: 36),
 
+                // ==================================================
+                // CALL
+                // ==================================================
+
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
+                  child:
+                      ElevatedButton.icon(
                     onPressed: () async {
                       final uri = Uri(
                         scheme: 'tel',
                         path: '+911234567890',
                       );
 
-                      if (await canLaunchUrl(uri)) {
+                      if (await canLaunchUrl(
+                        uri,
+                      )) {
                         await launchUrl(uri);
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          Colors.white,
                       foregroundColor:
-                          const Color(0xFFD32F2F),
+                          const Color(
+                              0xFFD32F2F),
                       minimumSize:
-                          const Size.fromHeight(56),
+                          const Size.fromHeight(
+                        56,
+                      ),
                     ),
                     icon: const Icon(
                       Icons.call_rounded,
@@ -617,24 +549,104 @@ class EscalationAlertScreen extends ConsumerWidget {
 
                 const SizedBox(height: 12),
 
+                // ==================================================
+                // ACKNOWLEDGE
+                // ==================================================
+
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      refreshDashboard(ref);
-                      Navigator.of(context).pop();
+                  child:
+                      OutlinedButton(
+                    onPressed: () async {
+                      try {
+                        await ApiService
+                            .resolveAlert(
+                          alertId,
+                        );
+
+                        if (!context
+                            .mounted) {
+                          return;
+                        }
+
+                        ScaffoldMessenger
+                            .of(context)
+                            .showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Alert acknowledged successfully',
+                            ),
+                          ),
+                        );
+
+                        Navigator.of(
+                          context,
+                        ).pop();
+                      } catch (e) {
+                        if (!context
+                            .mounted) {
+                          return;
+                        }
+
+                        ScaffoldMessenger
+                            .of(context)
+                            .showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Could not acknowledge alert: $e',
+                            ),
+                          ),
+                        );
+                      }
                     },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
+                    style:
+                        OutlinedButton.styleFrom(
+                      side:
+                          const BorderSide(
                         color: Colors.white,
                         width: 1.5,
                       ),
-                      foregroundColor: Colors.white,
+                      foregroundColor:
+                          Colors.white,
                       minimumSize:
-                          const Size.fromHeight(56),
+                          const Size.fromHeight(
+                        56,
+                      ),
                     ),
                     child: const Text(
                       'Acknowledge — I\'m handling this',
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ==================================================
+                // VIEW LOCATION
+                // ==================================================
+
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(
+                        context,
+                      ).pop();
+
+                      Navigator.of(
+                        context,
+                      ).pushNamed('/map');
+                    },
+                    style:
+                        TextButton.styleFrom(
+                      foregroundColor:
+                          Colors.white,
+                    ),
+                    icon: const Icon(
+                      Icons.location_on,
+                    ),
+                    label: const Text(
+                      'View Patient Location',
                     ),
                   ),
                 ),

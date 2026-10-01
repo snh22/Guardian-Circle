@@ -14,13 +14,14 @@ import 'token_holder.dart';
 class ApiClient {
   static final Dio dio = Dio(
     BaseOptions(
-      baseUrl: 'http://10.0.2.2:8000',
+      baseUrl: 'https://guardian-circle.onrender.com',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {
-        'Content-Type': 'application/json',
+          'Content-Type': 'application/json',
       },
-    ),
+    )
+    
   )..interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {

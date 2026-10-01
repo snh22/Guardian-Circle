@@ -4,90 +4,30 @@ import 'package:http/http.dart' as http;
 
 class FallEventService {
   static const String backendUrl =
-      'https://guardian-ka-circle-backend.onrender.com/latest';
+      'http://10.0.2.2:8000/api/v1/events';
 
   static const String acknowledgeUrl =
-      'https://guardian-ka-circle-backend.onrender.com/acknowledge';
-
-  static const String guardianCircleUrl =
-      'https://guardian-ka-circle-backend.onrender.com/guardian-circle';
+      'http://10.0.2.2:8000/api/v1/alerts';
 
   Future<Map<String, dynamic>?> fetchLatestEvent() async {
-    final response = await http.get(
-      Uri.parse(backendUrl),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Backend error: ${response.statusCode}',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    if (data['status'] == 'none') {
-      return null;
-    }
-
-    return Map<String, dynamic>.from(data);
+    return null;
   }
 
-  Future<void> acknowledgeEvent() async {
-    final response = await http.post(
-      Uri.parse(acknowledgeUrl),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Acknowledge failed: ${response.statusCode}',
-      );
-    }
-  }
-
-  // ============================================================
-  // GUARDIAN CIRCLE
-  // ============================================================
-
-  Future<double> fetchGuardianCircleRange() async {
-    final response = await http.get(
-      Uri.parse(guardianCircleUrl),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Guardian Circle backend error: '
-        '${response.statusCode}',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    return (data['radius'] as num).toDouble();
-  }
-
-  Future<double> updateGuardianCircleRange(
-    double radius,
-  ) async {
-    final response = await http.post(
-      Uri.parse(guardianCircleUrl),
+  Future<void> acknowledgeEvent(int alertId) async {
+    final response = await http.put(
+      Uri.parse(
+        'http://10.0.2.2:8000/api/v1/alerts/$alertId/resolve',
+      ),
       headers: {
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        'radius': radius,
-      }),
     );
 
     if (response.statusCode != 200) {
       throw Exception(
-        'Guardian Circle update failed: '
-        '${response.statusCode}: '
+        'Acknowledge failed: ${response.statusCode}: '
         '${response.body}',
       );
     }
-
-    final data = jsonDecode(response.body);
-
-    return (data['radius'] as num).toDouble();
   }
 }

@@ -97,6 +97,30 @@ class ApiService {
   }
 
   // ---------------------------------------------------------------------
+  // Stage 6.5 — Alerts
+  // ---------------------------------------------------------------------
+
+  /// GET /api/v1/alerts/user/{user_id}
+  static Future<List<dynamic>> getAlertsForUser(
+    int userId,
+  ) async {
+    final response = await ApiClient.dio.get(
+      ApiEndpoints.alertsForUser('$userId'),
+    );
+
+    return response.data as List<dynamic>;
+  }
+
+  /// PUT /api/v1/alerts/{alert_id}/resolve
+  static Future<void> resolveAlert(
+    int alertId,
+  ) async {
+    await ApiClient.dio.put(
+      ApiEndpoints.resolveAlert('$alertId'),
+    );
+  }
+
+  // ---------------------------------------------------------------------
   // Stage 7 — Location
   // ---------------------------------------------------------------------
 
