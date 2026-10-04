@@ -704,8 +704,7 @@ class _ErrorState extends StatelessWidget {
 // CRITICAL ESCALATION SCREEN
 // ================================================================
 
-class EscalationAlertScreen
-    extends ConsumerWidget {
+class EscalationAlertScreen extends ConsumerWidget {
   final int alertId;
   final Map<String, dynamic> alertData;
 
@@ -731,55 +730,170 @@ class EscalationAlertScreen
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor:
-            const Color(0xFFD32F2F),
+        backgroundColor: const Color(0xFFF8F9FC),
         body: SafeArea(
-          child: Padding(
-            padding:
-                const EdgeInsets.all(28),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.emergency_rounded,
-                  color: Colors.white,
-                  size: 80,
-                ),
+                const SizedBox(height: 12),
 
-                const SizedBox(height: 20),
+                // ==================================================
+                // ALERT HEADER
+                // ==================================================
 
-                Text(
-                  'CRITICAL ALERT',
-                  textAlign:
-                      TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineLarge
-                      ?.copyWith(
-                        color: Colors.white,
-                        fontWeight:
-                            FontWeight.w700,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 26,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD32F2F),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD32F2F)
+                            .withValues(alpha: 0.22),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
                       ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  '$risk ALERT\n$reason',
-                  textAlign:
-                      TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(
-                        color: Colors.white,
-                        fontWeight:
-                            FontWeight.w500,
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.emergency_rounded,
+                          color: Colors.white,
+                          size: 42,
+                        ),
                       ),
+
+                      const SizedBox(height: 18),
+
+                      const Text(
+                        'CRITICAL ALERT',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 27,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$risk ALERT',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 36),
+                const SizedBox(height: 18),
+
+                // ==================================================
+                // ALERT DETAILS
+                // ==================================================
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.06),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: const Icon(
+                          Icons.warning_rounded,
+                          color: Color(0xFFD32F2F),
+                          size: 23,
+                        ),
+                      ),
+
+                      const SizedBox(width: 13),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'What happened?',
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            Text(
+                              reason,
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 22),
 
                 // ==================================================
                 // CALL
@@ -787,37 +901,36 @@ class EscalationAlertScreen
 
                 SizedBox(
                   width: double.infinity,
-                  child:
-                      ElevatedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: () async {
                       final uri = Uri(
                         scheme: 'tel',
                         path: '+911234567890',
                       );
 
-                      if (await canLaunchUrl(
-                        uri,
-                      )) {
+                      if (await canLaunchUrl(uri)) {
                         await launchUrl(uri);
                       }
                     },
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Colors.white,
-                      foregroundColor:
-                          const Color(
-                              0xFFD32F2F),
-                      minimumSize:
-                          const Size.fromHeight(
-                        56,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E8E5A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      minimumSize: const Size.fromHeight(58),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                     icon: const Icon(
                       Icons.call_rounded,
+                      size: 21,
                     ),
                     label: const Text(
-                      'Call Now',
+                      'Call Patient Now',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
@@ -830,22 +943,18 @@ class EscalationAlertScreen
 
                 SizedBox(
                   width: double.infinity,
-                  child:
-                      OutlinedButton(
+                  child: OutlinedButton.icon(
                     onPressed: () async {
                       try {
-                        await ApiService
-                            .resolveAlert(
+                        await ApiService.resolveAlert(
                           alertId,
                         );
 
-                        if (!context
-                            .mounted) {
+                        if (!context.mounted) {
                           return;
                         }
 
-                        ScaffoldMessenger
-                            .of(context)
+                        ScaffoldMessenger.of(context)
                             .showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -854,17 +963,13 @@ class EscalationAlertScreen
                           ),
                         );
 
-                        Navigator.of(
-                          context,
-                        ).pop();
+                        Navigator.of(context).pop();
                       } catch (e) {
-                        if (!context
-                            .mounted) {
+                        if (!context.mounted) {
                           return;
                         }
 
-                        ScaffoldMessenger
-                            .of(context)
+                        ScaffoldMessenger.of(context)
                             .showSnackBar(
                           SnackBar(
                             content: Text(
@@ -874,27 +979,31 @@ class EscalationAlertScreen
                         );
                       }
                     },
-                    style:
-                        OutlinedButton.styleFrom(
-                      side:
-                          const BorderSide(
-                        color: Colors.white,
-                        width: 1.5,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF1F3A5F),
+                      minimumSize: const Size.fromHeight(56),
+                      side: BorderSide(
+                        color: const Color(0xFF1F3A5F)
+                            .withValues(alpha: 0.18),
                       ),
-                      foregroundColor:
-                          Colors.white,
-                      minimumSize:
-                          const Size.fromHeight(
-                        56,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text(
-                      'Acknowledge — I\'m handling this',
+                    icon: const Icon(
+                      Icons.check_circle_outline_rounded,
+                    ),
+                    label: const Text(
+                      'Acknowledge Alert',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // ==================================================
                 // VIEW LOCATION
@@ -904,27 +1013,39 @@ class EscalationAlertScreen
                   width: double.infinity,
                   child: TextButton.icon(
                     onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pop();
+                      Navigator.of(context).pop();
 
-                      Navigator.of(
-                        context,
-                      ).pushNamed('/map');
+                      Navigator.of(context).pushNamed('/map');
                     },
-                    style:
-                        TextButton.styleFrom(
-                      foregroundColor:
-                          Colors.white,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF1F3A5F),
+                      minimumSize: const Size.fromHeight(50),
                     ),
                     icon: const Icon(
-                      Icons.location_on,
+                      Icons.location_on_rounded,
                     ),
                     label: const Text(
                       'View Patient Location',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  'Please respond promptly to this alert.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black38,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -933,3 +1054,4 @@ class EscalationAlertScreen
     );
   }
 }
+
