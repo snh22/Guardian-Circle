@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/risk_level.dart';
 import '../../domain/models/guardian_status.dart';
 
-/// The single most important widget in the app: answers "is the person
-/// safe?" at a glance. Large type, a solid color block (never color alone —
-/// always paired with icon + label text), and a subtle pulse for
-/// Critical so it can't be missed even in a peripheral glance.
 class RiskStatusCard extends StatelessWidget {
   final GuardianStatus status;
   final VoidCallback? onTap;
@@ -26,29 +22,91 @@ class RiskStatusCard extends StatelessWidget {
       button: onTap != null,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: level.backgroundTint,
-            borderRadius: BorderRadius.circular(24),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: level.color.withValues(alpha: 0.35),
-              width: 1.5,
+              color: level.color.withValues(alpha: 0.18),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // =========================================================
+              // TOP LABEL
+              // =========================================================
+
               Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: level.color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.shield_rounded,
+                          size: 15,
+                          color: level.color,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'CURRENT SAFETY STATUS',
+                          style: TextStyle(
+                            color: level.color,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  if (onTap != null)
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 15,
+                      color: Colors.black38,
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // =========================================================
+              // MAIN STATUS
+              // =========================================================
+
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
                   _StatusIcon(level: level),
+
                   const SizedBox(width: 16),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // RISK LEVEL
                         Text(
                           level.label,
                           style: Theme.of(context)
@@ -56,19 +114,21 @@ class RiskStatusCard extends StatelessWidget {
                               .headlineMedium
                               ?.copyWith(
                                 color: level.color,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
                               ),
                         ),
 
                         const SizedBox(height: 4),
 
-                        // RISK DESCRIPTION
                         Text(
                           level.description,
                           style: Theme.of(context)
                               .textTheme
-                              .bodyLarge
+                              .bodyMedium
                               ?.copyWith(
-                                color: Colors.black87,
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w500,
                               ),
                         ),
                       ],
@@ -77,39 +137,71 @@ class RiskStatusCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              Divider(
-                color: level.color.withValues(alpha: 0.25),
-              ),
+              // =========================================================
+              // INFORMATION PANEL
+              // =========================================================
 
-              const SizedBox(height: 12),
-
-              // SAFE ZONE
-              _StatusRow(
-                icon: Icons.location_on_outlined,
-                label: status.safeZoneState.displayText,
-              ),
-
-              const SizedBox(height: 8),
-
-              // LATEST EVENT
-              _StatusRow(
-                icon: Icons.history_toggle_off_rounded,
-                label:
-                    '${status.latestEvent.summary} • ${_formatTime(status.latestEvent.timestamp)}',
-              ),
-
-              // BATTERY
-              if (status.batteryPercent != null) ...[
-                const SizedBox(height: 8),
-
-                _StatusRow(
-                  icon: Icons.watch_outlined,
-                  label:
-                      'Band battery ${status.batteryPercent!.round()}%',
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F9FC),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-              ],
+                child: Column(
+                  children: [
+                    _StatusRow(
+                      icon: Icons.location_on_rounded,
+                      label: status.safeZoneState.displayText,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _StatusRow(
+                      icon: Icons.history_rounded,
+                      label:
+                          '${status.latestEvent.summary} • ${_formatTime(status.latestEvent.timestamp)}',
+                    ),
+
+                    if (status.batteryPercent != null) ...[
+                      const SizedBox(height: 12),
+                      _StatusRow(
+                        icon: Icons.battery_std_rounded,
+                        label:
+                            'Band battery ${status.batteryPercent!.round()}%',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // =========================================================
+              // VIEW LOCATION HINT
+              // =========================================================
+
+              if (onTap != null)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.map_outlined,
+                      size: 16,
+                      color: const Color(0xFF1F3A5F),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tap to view patient location',
+                      style: TextStyle(
+                        color: const Color(0xFF1F3A5F),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -126,7 +218,10 @@ class RiskStatusCard extends StatelessWidget {
   }
 }
 
-/// Pulsing ring for Critical, static for everything else.
+// =======================================================================
+// STATUS ICON
+// =======================================================================
+
 class _StatusIcon extends StatefulWidget {
   final RiskLevel level;
 
@@ -158,16 +253,23 @@ class _StatusIconState extends State<_StatusIcon>
         widget.level == RiskLevel.critical;
 
     final child = Container(
-      width: 56,
-      height: 56,
+      width: 62,
+      height: 62,
       decoration: BoxDecoration(
         color: widget.level.color,
         shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: widget.level.color.withValues(alpha: 0.25),
+            blurRadius: 14,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Icon(
         widget.level.icon,
         color: Colors.white,
-        size: 30,
+        size: 31,
       ),
     );
 
@@ -190,11 +292,10 @@ class _StatusIconState extends State<_StatusIcon>
   }
 }
 
-/// Individual information row inside the risk card.
-///
-/// Text color is explicitly set to dark so that values such as
-/// "Zone unknown" and "Waiting for first signal" remain readable
-/// regardless of the global theme.
+// =======================================================================
+// STATUS ROW
+// =======================================================================
+
 class _StatusRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -208,13 +309,21 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Colors.black54,
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8EEF5),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: const Color(0xFF1F3A5F),
+          ),
         ),
 
-        const SizedBox(width: 10),
+        const SizedBox(width: 11),
 
         Expanded(
           child: Text(
@@ -224,6 +333,7 @@ class _StatusRow extends StatelessWidget {
                 .bodyMedium
                 ?.copyWith(
                   color: Colors.black87,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
         ),

@@ -206,31 +206,123 @@ class _DashboardScreenState
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  status.userName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.05),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.035),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
                       ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 29,
+                            backgroundColor:
+                                const Color(0xFFE8EEF5),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              size: 30,
+                              color: Color(0xFF1F3A5F),
+                            ),
+                          ),
+                          Positioned(
+                            right: 1,
+                            bottom: 1,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(width: 14),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'PATIENT MONITORING',
+                              style: TextStyle(
+                                color: Color(0xFF1F3A5F),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            Text(
+                              status.userName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.sync_rounded,
+                                  size: 14,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    'Updated ${_relativeTime(status.lastUpdated)}',
+                                    overflow:
+                                        TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Colors.black54,
+                                          fontWeight:
+                                              FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
-                const SizedBox(height: 4),
-
-                Text(
-                  'Last updated '
-                  '${_relativeTime(status.lastUpdated)}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(
-                        color: Colors.black54,
-                      ),
-                ),
-
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // ==================================================
                 // RISK STATUS
@@ -269,98 +361,154 @@ class _DashboardScreenState
                 // RECENT ACTIVITY
                 // ==================================================
 
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Recent Activity',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Latest updates from the patient',
+                            style: TextStyle(
+                              color: Colors.black45,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8EEF5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.history_rounded,
+                            size: 14,
+                            color: Color(0xFF1F3A5F),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${events.length}',
+                            style: const TextStyle(
+                              color: Color(0xFF1F3A5F),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.05),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.035),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: EventTimelineList(
+                    events: events,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ==================================================
+                // MORE FEATURES
+                // ==================================================
+
+                const SizedBox(height: 4),
+
                 Text(
-                  'Recent Activity',
+                  'MORE FEATURES',
                   style: Theme.of(context)
                       .textTheme
-                      .titleMedium
+                      .labelLarge
                       ?.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
                       ),
                 ),
 
                 const SizedBox(height: 12),
 
-                Card(
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.all(16),
-                    child: EventTimelineList(
-                      events: events,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // ==================================================
-                // MAP / GPS
-                // ==================================================
-
-                OutlinedButton.icon(
-                  onPressed: () {
+                _DashboardFeatureCard(
+                  icon: Icons.location_on_rounded,
+                  title: 'Live Location',
+                  subtitle:
+                      'View the patient\'s current location',
+                  color: const Color(0xFF1F3A5F),
+                  onTap: () {
                     Navigator.of(context)
                         .pushNamed('/map');
                   },
-                  icon: const Icon(
-                    Icons.location_on_outlined,
-                  ),
-                  label: const Text(
-                    'View Live Location',
-                  ),
-                  style:
-                      OutlinedButton.styleFrom(
-                    minimumSize:
-                        const Size.fromHeight(50),
-                  ),
                 ),
 
                 const SizedBox(height: 12),
 
-                // ==================================================
-                // TRIPS
-                // ==================================================
-
-                OutlinedButton(
-                  onPressed: () {
+                _DashboardFeatureCard(
+                  icon: Icons.route_rounded,
+                  title: 'Planned Trips',
+                  subtitle:
+                      'Manage upcoming journeys and routes',
+                  color: const Color(0xFF6C63A8),
+                  onTap: () {
                     Navigator.of(context)
                         .pushNamed('/trips');
                   },
-                  child: const Text(
-                    'Manage Planned Trips',
-                    style: TextStyle(
-                      color: Color(0xFF1F3A5F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
+
                 const SizedBox(height: 12),
 
-                // ==================================================
-                // ELDERLY PROFILE
-                // ==================================================
-
-                OutlinedButton.icon(
-                  onPressed: () {
+                _DashboardFeatureCard(
+                  icon: Icons.person_rounded,
+                  title: 'Elderly Profile',
+                  subtitle:
+                      'View and manage patient information',
+                  color: const Color(0xFF1E8E5A),
+                  onTap: () {
                     Navigator.of(context)
                         .pushNamed('/elderly-profile');
                   },
-                  icon: const Icon(
-                    Icons.person_outline,
-                  ),
-                  label: const Text(
-                    'Elderly Profile',
-                    style: TextStyle(
-                      color: Color(0xFF1F3A5F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize:
-                        const Size.fromHeight(50),
-                  ),
                 ),
+
+                const SizedBox(height: 12),
               ],
             ),
           );
@@ -409,6 +557,107 @@ class _DashboardScreenState
 // ================================================================
 // ERROR STATE
 // ================================================================
+
+class _DashboardFeatureCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DashboardFeatureCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: color.withValues(alpha: 0.12),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 25,
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.black87,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: color.withValues(alpha: 0.55),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _ErrorState extends StatelessWidget {
   final String message;
