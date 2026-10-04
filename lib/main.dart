@@ -11,6 +11,7 @@ import 'features/ble/presentation/screens/ble_connection_screen.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'features/map/presentation/screens/live_map_screen.dart';
 import 'features/trips/presentation/screens/trips_screen.dart';
+import 'features/profile/presentation/screens/elderly_profile_screen.dart';
 
 void main() {
   // Stops google_fonts from trying to download fonts over the network at
@@ -38,6 +39,7 @@ class GuardianCircleApp extends StatelessWidget {
         '/map': (_) => const LiveMapScreen(),
         '/ble': (_) => const BleConnectionScreen(),
         '/trips': (_) => const TripsScreen(),
+        '/elderly-profile': (_) => const ElderlyProfileScreen(),
         '/dashboard': (_) => const DashboardScreen(),
         '/guardian-ble': (_) => const GuardianBleAdvertiserScreen(),
       },

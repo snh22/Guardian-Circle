@@ -54,7 +54,7 @@ final dashboardEventsProvider =
       return const [];
     }
 
-    return ApiService.getEventsForUser(user.userId);
+    return ApiService.getEventsForUser(3);
   },
 );
 
@@ -136,10 +136,13 @@ final fallEventStreamProvider =
     final timestampString =
         data['timestamp']?.toString();
 
-    final timestamp = timestampString != null
-        ? DateTime.tryParse(timestampString) ??
-            DateTime.now()
-        : DateTime.now();
+    final parsedTimestamp =
+      timestampString != null
+        ? DateTime.tryParse(timestampString)
+        : null;
+
+    final timestamp =
+      parsedTimestamp?.toLocal() ?? DateTime.now();
 
     return TimelineEvent(
       id: eventId,

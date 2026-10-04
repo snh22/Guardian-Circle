@@ -335,6 +335,32 @@ class _DashboardScreenState
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // ==================================================
+                // ELDERLY PROFILE
+                // ==================================================
+
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context)
+                        .pushNamed('/elderly-profile');
+                  },
+                  icon: const Icon(
+                    Icons.person_outline,
+                  ),
+                  label: const Text(
+                    'Elderly Profile',
+                    style: TextStyle(
+                      color: Color(0xFF1F3A5F),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize:
+                        const Size.fromHeight(50),
+                  ),
+                ),
               ],
             ),
           );

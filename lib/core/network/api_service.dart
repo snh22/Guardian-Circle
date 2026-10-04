@@ -121,6 +121,46 @@ class ApiService {
   }
 
   // ---------------------------------------------------------------------
+  // Elderly Profile
+  // ---------------------------------------------------------------------
+
+  /// GET /api/v1/profile/{elderly_user_id}
+  static Future<Map<String, dynamic>> getElderlyProfile(
+    int elderlyUserId,
+  ) async {
+    final response = await ApiClient.dio.get(
+      ApiEndpoints.elderlyProfile('$elderlyUserId'),
+    );
+
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// POST /api/v1/profile/link?elderly_user_id={id}
+  static Future<void> linkElderlyProfile(
+    int elderlyUserId,
+  ) async {
+    await ApiClient.dio.post(
+      ApiEndpoints.linkElderlyProfile,
+      queryParameters: {
+        'elderly_user_id': elderlyUserId,
+      },
+    );
+  }
+
+  /// PUT /api/v1/profile/{elderly_user_id}
+  static Future<Map<String, dynamic>> updateElderlyProfile({
+    required int elderlyUserId,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await ApiClient.dio.put(
+      ApiEndpoints.elderlyProfile('$elderlyUserId'),
+      data: data,
+    );
+
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ---------------------------------------------------------------------
   // Stage 7 — Location
   // ---------------------------------------------------------------------
 
@@ -150,7 +190,7 @@ class ApiService {
   static Future<Map<String, dynamic>?> getLatestLocation() async {
     try {
       final response = await ApiClient.dio.get(
-        '/api/v1/location/latest',
+        ApiEndpoints.locationLatest('3'),
       );
 
       return response.data as Map<String, dynamic>;
@@ -174,7 +214,7 @@ class ApiService {
       data: {
         'user_id': userId,
         'destination': destination,
-        'start_time': startTime.toUtc().toIso8601String(),
+        'start_time': startTime.toIso8601String(),
         'status': 'planned',
       },
     );
@@ -213,12 +253,10 @@ class ApiService {
     final response = await ApiClient.dio.put(
       ApiEndpoints.tripById('$tripId'),
       data: {
-        if (destination != null)
-          'destination': destination,
+        if (destination != null) 'destination': destination,
         if (startTime != null)
-          'start_time': startTime.toUtc().toIso8601String(),
-        if (status != null)
-          'status': status,
+          'start_time': startTime.toIso8601String(),
+        if (status != null) 'status': status,
       },
     );
 

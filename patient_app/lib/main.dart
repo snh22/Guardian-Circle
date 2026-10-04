@@ -72,18 +72,18 @@ class _SensorPageState extends State<SensorPage> {
 
   // Android emulator -> Mac localhost
   static const String eventsUrl =
-    'https://guardian-circle.onrender.com/api/v1/events';
+    'http://192.168.1.10:8000/api/v1/events';
 
   static const String alertsUrl =
-    'https://guardian-circle.onrender.com/api/v1/alerts';
+    'http://192.168.1.10:8000/api/v1/alerts';
 
   // Elderly Test user in PostgreSQL
-  static const int elderlyUserId = 1;
+  static const int elderlyUserId = 3;
 
   // Paste your FRESH JWT here.
   // DO NOT share this token with anyone.
   static const String accessToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzkwODQ2NTc5fQ.3faMLIdbH5p16L1A2Spgu42TPCkaFjhL4sDi7Ab68qE';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZXhwIjoxNzkxMDk3ODg5fQ.8ZmustPQcay6-dErDSVi3t0kUmEEZXRkakCfDMAN-VI';
 
   @override
   void initState() {
@@ -384,14 +384,38 @@ class _SensorPageState extends State<SensorPage> {
           });
         }
 
-        if (bestPosition.accuracy <= 5) {
+        if (bestPosition != null) {
+          final locationResponse = await http.post(
+            Uri.parse(
+              'http://192.168.1.10:8000/api/v1/location',
+            ),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $accessToken',
+            },
+            body: jsonEncode({
+              'user_id': elderlyUserId,
+              'latitude': bestPosition.latitude,
+              'longitude': bestPosition.longitude,
+              'accuracy': bestPosition.accuracy,
+            }),
+          );
+
+          debugPrint(
+            'LOCATION UPLOAD: ${locationResponse.statusCode} '
+            '${locationResponse.body}',
+          );
+        }
+
+        if (bestPosition != null && bestPosition.accuracy <= 5) {
           break;
         }
 
         await Future.delayed(
           const Duration(milliseconds: 500),
         );
-      } catch (_) {
+      } catch (e) {
+        debugPrint('LOCATION ERROR: $e');
         // Try the next fix.
       }
     }
