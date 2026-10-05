@@ -71,11 +71,7 @@ class _SensorPageState extends State<SensorPage> {
   // ============================================================
 
   // Android emulator -> Mac localhost
-  static const String eventsUrl =
-    'http://192.168.1.10:8000/api/v1/events';
-
-  static const String alertsUrl =
-    'http://192.168.1.10:8000/api/v1/alerts';
+  static const String eventsUrl = 'http://192.168.1.10:8000/api/v1/events';
 
   // Elderly Test user in PostgreSQL
   static const int elderlyUserId = 3;
@@ -83,7 +79,7 @@ class _SensorPageState extends State<SensorPage> {
   // Paste your FRESH JWT here.
   // DO NOT share this token with anyone.
   static const String accessToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZXhwIjoxNzkxMTc1Mzg2fQ.KyhOH9cGYD3f9eskdmEkhOYJq7IxUuhzkR03YpZKWXA';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZXhwIjoxNzkxMjA3MDM2fQ.DfRwjy_eCGKONoN_ZyVG-U6ZY8oDcB4vwJVcuAZ_9NY';
 
   @override
   void initState() {
@@ -116,9 +112,9 @@ class _SensorPageState extends State<SensorPage> {
       sendingFall = true;
     });
 
-  try {
-    debugPrint('🔥 Sending FALL EVENT...');
-    
+    try {
+      debugPrint('🔥 Sending FALL EVENT...');
+
       // STEP 1: Send fall event
       final eventResponse = await http.post(
         Uri.parse(eventsUrl),
@@ -151,62 +147,19 @@ class _SensorPageState extends State<SensorPage> {
         return;
       }
 
-      // STEP 2: Create caretaker alert
-      final alertUri = Uri.parse(
-        '$alertsUrl'
-        '?user_id=$elderlyUserId'
-        '&risk_level=critical'
-        '&reason=Fall%20detected%20by%20patient%20sensor',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("FALL DETECTED — CARETAKER ALERT SENT")),
       );
 
-      debugPrint('ALERT URL: $alertUri');
-
-      final alertResponse = await http.post(
-        alertUri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
-      );
-
-      if (!mounted) return;
-
-      if (alertResponse.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'FALL DETECTED — CARETAKER ALERT SENT',
-            ),
-          ),
-        );
-
-        detector.resetFallState();
-        automaticFallSent = false;
-      } else {
-        automaticFallSent = false;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Alert creation failed: '
-              '${alertResponse.statusCode}\n'
-              '${alertResponse.body}',
-            ),
-          ),
-        );
-      }
+      detector.resetFallState();
+      automaticFallSent = false;
     } catch (e) {
       if (!mounted) return;
 
       automaticFallSent = false;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Automatic alert error: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Automatic alert error: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -217,115 +170,75 @@ class _SensorPageState extends State<SensorPage> {
   }
 
   Future<void> sendTestFall() async {
-  setState(() {
-    sendingFall = true;
-  });
+    setState(() {
+      sendingFall = true;
+    });
 
-  try {
-    // STEP 1: Send fall event
-    final eventResponse = await http.post(
-      Uri.parse(eventsUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-      body: jsonEncode({
-        'user_id': elderlyUserId,
-        'event_type': 'fall',
-        'risk_level': 'critical',
-      }),
-    );
+    try {
+      // STEP 1: Send fall event
+      final eventResponse = await http.post(
+        Uri.parse(eventsUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'user_id': elderlyUserId,
+          'event_type': 'fall',
+          'risk_level': 'critical',
+        }),
+      );
 
-    if (eventResponse.statusCode != 200) {
+      if (eventResponse.statusCode != 200) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Fall event failed: '
+              '${eventResponse.statusCode}\n'
+              '${eventResponse.body}',
+            ),
+          ),
+        );
+
+        return;
+      }
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Fall event failed: '
-            '${eventResponse.statusCode}\n'
-            '${eventResponse.body}',
-          ),
-        ),
+        const SnackBar(content: Text("FALL DETECTED — CARETAKER ALERT SENT")),
       );
+    } catch (e) {
+      if (!mounted) return;
 
-      return;
-    }
-
-    // STEP 2: Create caretaker alert
-    final alertUri = Uri.parse(
-      '$alertsUrl'
-      '?user_id=$elderlyUserId'
-      '&risk_level=critical'
-      '&reason=Fall%20detected%20by%20patient%20sensor',
-    );
-
-    final alertResponse = await http.post(
-      alertUri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
-
-    if (!mounted) return;
-
-    if (alertResponse.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'FALL DETECTED — CARETAKER ALERT SENT',
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Alert creation failed: '
-            '${alertResponse.statusCode}\n'
-            '${alertResponse.body}',
-          ),
-        ),
-      );
-    }
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Connection error: $e',
-        ),
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        sendingFall = false;
-      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Connection error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          sendingFall = false;
+        });
+      }
     }
   }
-}
 
   // ============================================================
   // GPS
   // ============================================================
 
   Future<Position?> getAccurateLocation() async {
-    bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       return null;
     }
 
-    LocationPermission permission =
-        await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied ||
@@ -333,8 +246,7 @@ class _SensorPageState extends State<SensorPage> {
       return null;
     }
 
-    final locationAccuracy =
-        await Geolocator.getLocationAccuracy();
+    final locationAccuracy = await Geolocator.getLocationAccuracy();
 
     if (locationAccuracy != LocationAccuracyStatus.precise) {
       if (mounted) {
@@ -353,8 +265,7 @@ class _SensorPageState extends State<SensorPage> {
 
     for (int i = 0; i < 5; i++) {
       try {
-        final position =
-            await Geolocator.getCurrentPosition(
+        final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
           ),
@@ -362,8 +273,7 @@ class _SensorPageState extends State<SensorPage> {
 
         locationFixCount++;
 
-        if (bestPosition == null ||
-            position.accuracy < bestPosition.accuracy) {
+        if (bestPosition == null || position.accuracy < bestPosition.accuracy) {
           bestPosition = position;
           bestLocationAccuracy = position.accuracy;
         }
@@ -371,8 +281,7 @@ class _SensorPageState extends State<SensorPage> {
         if (mounted) {
           setState(() {
             currentPosition = bestPosition;
-            bestLocationAccuracy =
-                bestPosition?.accuracy;
+            bestLocationAccuracy = bestPosition?.accuracy;
 
             if (bestPosition != null) {
               if (bestPosition.accuracy <= 5) {
@@ -390,9 +299,7 @@ class _SensorPageState extends State<SensorPage> {
 
         if (bestPosition != null) {
           final locationResponse = await http.post(
-            Uri.parse(
-              'http://192.168.1.10:8000/api/v1/location',
-            ),
+            Uri.parse('http://192.168.1.10:8000/api/v1/location'),
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $accessToken',
@@ -415,9 +322,7 @@ class _SensorPageState extends State<SensorPage> {
           break;
         }
 
-        await Future.delayed(
-          const Duration(milliseconds: 500),
-        );
+        await Future.delayed(const Duration(milliseconds: 500));
       } catch (e) {
         debugPrint('LOCATION ERROR: $e');
         // Try the next fix.
@@ -436,8 +341,7 @@ class _SensorPageState extends State<SensorPage> {
     });
 
     try {
-      final position =
-          await getAccurateLocation();
+      final position = await getAccurateLocation();
 
       if (!mounted) return;
 
@@ -469,13 +373,8 @@ class _SensorPageState extends State<SensorPage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Location error: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Location error: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -489,14 +388,10 @@ class _SensorPageState extends State<SensorPage> {
   // GUARDIAN IDENTIFICATION
   // ============================================================
 
-  bool isGuardianAdvertisement(
-    AdvertisementData advertisementData,
-  ) {
-    final manufacturerData =
-        advertisementData.manufacturerData;
+  bool isGuardianAdvertisement(AdvertisementData advertisementData) {
+    final manufacturerData = advertisementData.manufacturerData;
 
-    final guardianData =
-        manufacturerData[guardianManufacturerId];
+    final guardianData = manufacturerData[guardianManufacturerId];
 
     if (guardianData != null &&
         guardianData.isNotEmpty &&
@@ -508,11 +403,7 @@ class _SensorPageState extends State<SensorPage> {
       final bytes = entry.value;
 
       final text = String.fromCharCodes(
-        bytes.where(
-          (byte) =>
-              byte >= 32 &&
-              byte <= 126,
-        ),
+        bytes.where((byte) => byte >= 32 && byte <= 126),
       );
 
       if (text.contains('GUARDIAN')) {
@@ -520,35 +411,25 @@ class _SensorPageState extends State<SensorPage> {
       }
     }
 
-    final name =
-        advertisementData.advName.toUpperCase();
+    final name = advertisementData.advName.toUpperCase();
 
     return name.contains('GUARDIAN');
   }
 
-  String manufacturerDataText(
-    AdvertisementData advertisementData,
-  ) {
+  String manufacturerDataText(AdvertisementData advertisementData) {
     if (advertisementData.manufacturerData.isEmpty) {
       return 'None';
     }
 
     final parts = <String>[];
 
-    advertisementData.manufacturerData.forEach(
-      (id, bytes) {
-        final hex = bytes
-            .map(
-              (byte) =>
-                  byte.toRadixString(16).padLeft(2, '0'),
-            )
-            .join(' ');
+    advertisementData.manufacturerData.forEach((id, bytes) {
+      final hex = bytes
+          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+          .join(' ');
 
-        parts.add(
-          '0x${id.toRadixString(16)}: $hex',
-        );
-      },
-    );
+      parts.add('0x${id.toRadixString(16)}: $hex');
+    });
 
     return parts.join('\n');
   }
@@ -567,27 +448,20 @@ class _SensorPageState extends State<SensorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Bluetooth LE is not supported on this phone.',
-          ),
+          content: Text('Bluetooth LE is not supported on this phone.'),
         ),
       );
 
       return;
     }
 
-    final adapterState =
-        await FlutterBluePlus.adapterState.first;
+    final adapterState = await FlutterBluePlus.adapterState.first;
 
     if (adapterState != BluetoothAdapterState.on) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please turn Bluetooth ON.',
-          ),
-        ),
+        const SnackBar(content: Text('Please turn Bluetooth ON.')),
       );
 
       return;
@@ -605,69 +479,52 @@ class _SensorPageState extends State<SensorPage> {
     try {
       await FlutterBluePlus.stopScan();
 
-      final subscription =
-          FlutterBluePlus.onScanResults.listen(
-        (results) {
-          if (!mounted) return;
+      final subscription = FlutterBluePlus.onScanResults.listen((results) {
+        if (!mounted) return;
 
-          setState(() {
-            for (final result in results) {
-              totalBleResults++;
+        setState(() {
+          for (final result in results) {
+            totalBleResults++;
 
-              final deviceId =
-                  result.device.remoteId.str;
+            final deviceId = result.device.remoteId.str;
 
-              bleDevices[deviceId] = result;
+            bleDevices[deviceId] = result;
 
-              proximityEngines.putIfAbsent(
-                deviceId,
-                () => BleProximityEngine(),
-              );
+            proximityEngines.putIfAbsent(deviceId, () => BleProximityEngine());
 
-              final isGuardian =
-                  isGuardianAdvertisement(
-                result.advertisementData,
-              );
+            final isGuardian = isGuardianAdvertisement(
+              result.advertisementData,
+            );
 
-              if (isGuardian &&
-                  guardianDeviceId == null) {
-                guardianDeviceId = deviceId;
+            if (isGuardian && guardianDeviceId == null) {
+              guardianDeviceId = deviceId;
 
-                proximityEngines[deviceId]!.reset();
-              }
-
-              if (deviceId == guardianDeviceId) {
-                guardianProximity =
-                    proximityEngines[deviceId]!
-                        .addRssi(result.rssi);
-              }
+              proximityEngines[deviceId]!.reset();
             }
-          });
-        },
-      );
+
+            if (deviceId == guardianDeviceId) {
+              guardianProximity = proximityEngines[deviceId]!.addRssi(
+                result.rssi,
+              );
+            }
+          }
+        });
+      });
 
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 60),
-        androidScanMode:
-            AndroidScanMode.lowLatency,
+        androidScanMode: AndroidScanMode.lowLatency,
         continuousUpdates: true,
         continuousDivisor: 1,
       );
 
-      await FlutterBluePlus.isScanning
-          .where((value) => value == false)
-          .first;
+      await FlutterBluePlus.isScanning.where((value) => value == false).first;
 
       await subscription.cancel();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'BLE scan error: $e',
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('BLE scan error: $e')));
       }
     } finally {
       if (mounted) {
@@ -683,10 +540,7 @@ class _SensorPageState extends State<SensorPage> {
   // ============================================================
 
   void selectGuardianDevice(String deviceId) {
-    proximityEngines.putIfAbsent(
-      deviceId,
-      () => BleProximityEngine(),
-    );
+    proximityEngines.putIfAbsent(deviceId, () => BleProximityEngine());
 
     setState(() {
       guardianDeviceId = deviceId;
@@ -695,8 +549,7 @@ class _SensorPageState extends State<SensorPage> {
 
     final device = bleDevices[deviceId];
 
-    final name =
-        device?.advertisementData.advName ?? '';
+    final name = device?.advertisementData.advName ?? '';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -716,9 +569,7 @@ class _SensorPageState extends State<SensorPage> {
     });
   }
 
-  String proximityStateText(
-    ProximityState? state,
-  ) {
+  String proximityStateText(ProximityState? state) {
     switch (state) {
       case ProximityState.inside:
         return 'INSIDE GUARDIAN CIRCLE';
@@ -760,25 +611,19 @@ class _SensorPageState extends State<SensorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fall Detection Sensor'),
-      ),
+      appBar: AppBar(title: const Text('Fall Detection Sensor')),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
               // ==================================================
               // ACCELEROMETER
               // ==================================================
 
               const Text(
                 'ACCELEROMETER',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
@@ -800,10 +645,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 15),
 
-              const Text(
-                'Linear Acceleration',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Linear Acceleration', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.magnitude.toStringAsFixed(2)} m/s²',
@@ -815,10 +657,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 15),
 
-              const Text(
-                'Peak Acceleration',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Peak Acceleration', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.peakAcceleration.toStringAsFixed(2)} m/s²',
@@ -833,15 +672,11 @@ class _SensorPageState extends State<SensorPage> {
               // ==================================================
               // GYROSCOPE
               // ==================================================
-
               const SizedBox(height: 15),
 
               const Text(
                 'GYROSCOPE',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
@@ -863,10 +698,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 15),
 
-              const Text(
-                'Rotation Magnitude',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Rotation Magnitude', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.gyroMagnitude.toStringAsFixed(2)} rad/s',
@@ -878,10 +710,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 15),
 
-              const Text(
-                'Peak Rotation',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Peak Rotation', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.peakGyro.toStringAsFixed(2)} rad/s',
@@ -893,10 +722,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 15),
 
-              const Text(
-                'Window Gyro Peak',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Window Gyro Peak', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.windowGyroPeak.toStringAsFixed(2)} rad/s',
@@ -918,15 +744,11 @@ class _SensorPageState extends State<SensorPage> {
               // ==================================================
               // FALL STATUS
               // ==================================================
-
               const SizedBox(height: 15),
 
               const Text(
                 'LIVE SENSOR STATUS',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               Text(
@@ -954,10 +776,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const SizedBox(height: 20),
 
-              const Text(
-                'Impact Window Peak',
-                style: TextStyle(fontSize: 16),
-              ),
+              const Text('Impact Window Peak', style: TextStyle(fontSize: 16)),
 
               Text(
                 '${detector.windowPeak.toStringAsFixed(2)} m/s²',
@@ -992,7 +811,6 @@ class _SensorPageState extends State<SensorPage> {
               // ==================================================
               // GPS
               // ==================================================
-
               const SizedBox(height: 25),
 
               const Divider(),
@@ -1001,10 +819,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const Text(
                 'GPS LOCATION',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
@@ -1053,19 +868,15 @@ class _SensorPageState extends State<SensorPage> {
               const SizedBox(height: 15),
 
               ElevatedButton(
-                onPressed:
-                    gettingLocation ? null : getLocation,
+                onPressed: gettingLocation ? null : getLocation,
                 child: Text(
-                  gettingLocation
-                      ? 'Getting Location...'
-                      : 'GET BEST LOCATION',
+                  gettingLocation ? 'Getting Location...' : 'GET BEST LOCATION',
                 ),
               ),
 
               // ==================================================
               // BLE
               // ==================================================
-
               const SizedBox(height: 25),
 
               const Divider(),
@@ -1074,10 +885,7 @@ class _SensorPageState extends State<SensorPage> {
 
               const Text(
                 'BLUETOOTH LE',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
@@ -1094,16 +902,13 @@ class _SensorPageState extends State<SensorPage> {
 
               Text(
                 'Scan results received: $totalBleResults',
-                style: const TextStyle(
-                  fontSize: 14,
-                ),
+                style: const TextStyle(fontSize: 14),
               ),
 
               const SizedBox(height: 10),
 
               ElevatedButton(
-                onPressed:
-                    scanningBle ? null : startBleScan,
+                onPressed: scanningBle ? null : startBleScan,
                 child: Text(
                   scanningBle
                       ? 'SCANNING FOR 60 SECONDS...'
@@ -1116,7 +921,6 @@ class _SensorPageState extends State<SensorPage> {
               // ==================================================
               // GUARDIAN CIRCLE STATUS
               // ==================================================
-
               if (guardianDeviceId != null) ...[
                 Card(
                   margin: const EdgeInsets.symmetric(
@@ -1127,7 +931,6 @@ class _SensorPageState extends State<SensorPage> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
-
                         const Text(
                           'GUARDIAN CIRCLE',
                           style: TextStyle(
@@ -1139,9 +942,7 @@ class _SensorPageState extends State<SensorPage> {
                         const SizedBox(height: 15),
 
                         Text(
-                          proximityStateText(
-                            guardianProximity?.state,
-                          ),
+                          proximityStateText(guardianProximity?.state),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 24,
@@ -1155,49 +956,39 @@ class _SensorPageState extends State<SensorPage> {
                           guardianProximity?.filteredRssi == null
                               ? 'Filtered RSSI: collecting...'
                               : 'Filtered RSSI: '
-                                  '${guardianProximity!.filteredRssi!.toStringAsFixed(1)} dBm',
-                          style: const TextStyle(
-                            fontSize: 18,
-                          ),
+                                    '${guardianProximity!.filteredRssi!.toStringAsFixed(1)} dBm',
+                          style: const TextStyle(fontSize: 18),
                         ),
 
                         Text(
                           guardianProximity?.rssi == null
                               ? 'Raw RSSI: --'
                               : 'Raw RSSI: '
-                                  '${guardianProximity!.rssi} dBm',
-                          style: const TextStyle(
-                            fontSize: 16,
-                          ),
+                                    '${guardianProximity!.rssi} dBm',
+                          style: const TextStyle(fontSize: 16),
                         ),
 
                         Text(
                           guardianProximity == null
                               ? 'Confidence: --'
                               : 'Confidence: '
-                                  '${(guardianProximity!.confidence * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            fontSize: 16,
-                          ),
+                                    '${(guardianProximity!.confidence * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 16),
                         ),
 
                         Text(
                           guardianProximity == null
                               ? 'Samples: 0'
                               : 'Samples: '
-                                  '${guardianProximity!.sampleCount}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                          ),
+                                    '${guardianProximity!.sampleCount}',
+                          style: const TextStyle(fontSize: 16),
                         ),
 
                         const SizedBox(height: 15),
 
                         ElevatedButton(
                           onPressed: clearGuardianDevice,
-                          child: const Text(
-                            'CLEAR GUARDIAN DEVICE',
-                          ),
+                          child: const Text('CLEAR GUARDIAN DEVICE'),
                         ),
                       ],
                     ),
@@ -1213,132 +1004,113 @@ class _SensorPageState extends State<SensorPage> {
                   style: TextStyle(fontSize: 16),
                 ),
 
-              ...bleDevices.values.map(
-                (result) {
-                  final device = result.device;
+              ...bleDevices.values.map((result) {
+                final device = result.device;
 
-                  final name =
-                      result.advertisementData.advName;
+                final name = result.advertisementData.advName;
 
-                  final deviceId =
-                      device.remoteId.str;
+                final deviceId = device.remoteId.str;
 
-                  final isGuardian =
-                      isGuardianAdvertisement(
-                    result.advertisementData,
-                  );
+                final isGuardian = isGuardianAdvertisement(
+                  result.advertisementData,
+                );
 
-                  final isSelected =
-                      deviceId == guardianDeviceId;
+                final isSelected = deviceId == guardianDeviceId;
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  name.isEmpty
-                                      ? 'Unknown BLE Device'
-                                      : name,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-
-                              Text(
-                                '${result.rssi} dBm',
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name.isEmpty ? 'Unknown BLE Device' : name,
                                 style: const TextStyle(
-                                  fontSize: 20,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 6),
-
-                          Text(
-                            'RSSI: ${result.rssi} dBm',
-                            style: const TextStyle(
-                              fontSize: 17,
                             ),
-                          ),
 
-                          Text(
-                            'ID: $deviceId',
-                            style: const TextStyle(
-                              fontSize: 13,
+                            Text(
+                              '${result.rssi} dBm',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        Text(
+                          'RSSI: ${result.rssi} dBm',
+                          style: const TextStyle(fontSize: 17),
+                        ),
+
+                        Text(
+                          'ID: $deviceId',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        Text(
+                          isGuardian
+                              ? '🟢 GUARDIAN ADVERTISEMENT DETECTED'
+                              : '⚪ Normal BLE advertisement',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
 
-                          const SizedBox(height: 6),
+                        const SizedBox(height: 6),
 
-                          Text(
-                            isGuardian
-                                ? '🟢 GUARDIAN ADVERTISEMENT DETECTED'
-                                : '⚪ Normal BLE advertisement',
-                            style: const TextStyle(
+                        Text(
+                          'Manufacturer Data:\n'
+                          '${manufacturerDataText(result.advertisementData)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        if (isSelected)
+                          const Text(
+                            '✓ SELECTED AS GUARDIAN',
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
-                          ),
-
-                          const SizedBox(height: 6),
-
-                          Text(
-                            'Manufacturer Data:\n'
-                            '${manufacturerDataText(result.advertisementData)}',
-                            style: const TextStyle(
-                              fontSize: 12,
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () {
+                              selectGuardianDevice(deviceId);
+                            },
+                            child: Text(
+                              isGuardian
+                                  ? 'SELECT GUARDIAN'
+                                  : 'USE AS GUARDIAN',
                             ),
                           ),
-
-                          const SizedBox(height: 8),
-
-                          if (isSelected)
-                            const Text(
-                              '✓ SELECTED AS GUARDIAN',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          else
-                            ElevatedButton(
-                              onPressed: () {
-                                selectGuardianDevice(
-                                  deviceId,
-                                );
-                              },
-                              child: Text(
-                                isGuardian
-                                    ? 'SELECT GUARDIAN'
-                                    : 'USE AS GUARDIAN',
-                              ),
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              }),
 
               // ==================================================
               // BACKEND
               // ==================================================
-
               const SizedBox(height: 25),
 
               const Divider(),
@@ -1347,22 +1119,14 @@ class _SensorPageState extends State<SensorPage> {
 
               const Text(
                 'BACKEND TEST',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 10),
 
               ElevatedButton(
-                onPressed:
-                    sendingFall ? null : sendTestFall,
-                child: Text(
-                  sendingFall
-                      ? 'Sending...'
-                      : 'SEND TEST FALL',
-                ),
+                onPressed: sendingFall ? null : sendTestFall,
+                child: Text(sendingFall ? 'Sending...' : 'SEND TEST FALL'),
               ),
 
               const SizedBox(height: 20),

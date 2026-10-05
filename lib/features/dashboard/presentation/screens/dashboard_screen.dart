@@ -15,17 +15,15 @@ class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  ConsumerState<DashboardScreen> createState() =>
-      _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState
-    extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Timer? _alertTimer;
 
   // Current demo elderly user in the backend.
   // This is the elderly user whose alerts/location are being monitored.
-  static const int elderlyUserId = 1;
+  static const int elderlyUserId = 3;
 
   int? _lastShownAlertId;
 
@@ -62,8 +60,7 @@ class _DashboardScreenState
     if (!mounted) return;
 
     try {
-      final alerts =
-          await ApiService.getAlertsForUser(elderlyUserId);
+      final alerts = await ApiService.getAlertsForUser(elderlyUserId);
 
       if (!mounted || alerts.isEmpty) {
         return;
@@ -75,17 +72,13 @@ class _DashboardScreenState
       for (final item in alerts) {
         if (item is! Map) continue;
 
-        final alert =
-            Map<String, dynamic>.from(item);
+        final alert = Map<String, dynamic>.from(item);
 
-        final status =
-            alert['status']?.toString().toLowerCase();
+        final status = alert['status']?.toString().toLowerCase();
 
-        final risk =
-            alert['risk_level']?.toString().toLowerCase();
+        final risk = alert['risk_level']?.toString().toLowerCase();
 
-        if (status == 'active' &&
-            (risk == 'critical' || risk == 'high')) {
+        if (status == 'active' && (risk == 'critical' || risk == 'high')) {
           activeAlert = alert;
           break;
         }
@@ -95,15 +88,13 @@ class _DashboardScreenState
         return;
       }
 
-      final alertIdValue =
-          activeAlert['alert_id'];
+      final alertIdValue = activeAlert['alert_id'];
 
       if (alertIdValue == null) {
         return;
       }
 
-      final alertId =
-          int.tryParse(alertIdValue.toString());
+      final alertId = int.tryParse(alertIdValue.toString());
 
       if (alertId == null) {
         return;
@@ -142,8 +133,7 @@ class _DashboardScreenState
     final statusAsync = ref.watch(guardianStatusProvider);
     final eventsAsync = ref.watch(dashboardEventsProvider);
 
-    final events =
-        eventsAsync.valueOrNull ?? const <TimelineEvent>[];
+    final events = eventsAsync.valueOrNull ?? const <TimelineEvent>[];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
@@ -159,7 +149,6 @@ class _DashboardScreenState
           );
         },
         data: (status) {
-
           final Color riskColor;
           final Color riskLight;
           final IconData riskIcon;
@@ -298,17 +287,15 @@ class _DashboardScreenState
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
-
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 11,
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF63D6A0)
-                                .withValues(alpha: 0.16),
+                            color:
+                                const Color(0xFF63D6A0).withValues(alpha: 0.16),
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(
                               color: const Color(0xFF9AE6C2)
@@ -336,9 +323,7 @@ class _DashboardScreenState
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 15),
-
                         Row(
                           children: [
                             Stack(
@@ -385,8 +370,7 @@ class _DashboardScreenState
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     'PATIENT MONITORING',
@@ -426,7 +410,6 @@ class _DashboardScreenState
                     ),
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 22, 18, 28),
                   child: Column(
@@ -441,10 +424,7 @@ class _DashboardScreenState
                           letterSpacing: 1.0,
                         ),
                       ),
-
                       const SizedBox(height: 11),
-
-
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
@@ -515,9 +495,7 @@ class _DashboardScreenState
                                     ),
                                   ],
                                 ),
-
                                 const SizedBox(height: 20),
-
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 15,
@@ -533,8 +511,7 @@ class _DashboardScreenState
                                         child: _StatusMetric(
                                           icon: Icons.location_on_rounded,
                                           label: 'SAFE ZONE',
-                                          value:
-                                              status.safeZoneState.zoneLabel,
+                                          value: status.safeZoneState.zoneLabel,
                                           color: const Color(0xFF2674B8),
                                         ),
                                       ),
@@ -568,9 +545,7 @@ class _DashboardScreenState
                                     ],
                                   ),
                                 ),
-
                                 const SizedBox(height: 13),
-
                                 Row(
                                   children: [
                                     Icon(
@@ -600,9 +575,7 @@ class _DashboardScreenState
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 24),
-
                       Row(
                         children: [
                           const Expanded(
@@ -626,9 +599,7 @@ class _DashboardScreenState
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 11),
-
                       Row(
                         children: [
                           Expanded(
@@ -668,9 +639,7 @@ class _DashboardScreenState
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 28),
-
                       Row(
                         children: [
                           const Expanded(
@@ -729,9 +698,7 @@ class _DashboardScreenState
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 12),
-
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -742,7 +709,8 @@ class _DashboardScreenState
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF183B60).withValues(alpha: 0.055),
+                              color: const Color(0xFF183B60)
+                                  .withValues(alpha: 0.055),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -762,14 +730,17 @@ class _DashboardScreenState
                               const SizedBox(height: 8),
                               InkWell(
                                 onTap: () {
-                                  Navigator.of(context).pushNamed('/activity-history');
+                                  Navigator.of(context)
+                                      .pushNamed('/activity-history');
                                 },
                                 borderRadius: BorderRadius.circular(14),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 10),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.history_rounded, size: 18, color: Color(0xFF24598B)),
+                                      const Icon(Icons.history_rounded,
+                                          size: 18, color: Color(0xFF24598B)),
                                       const SizedBox(width: 8),
                                       const Expanded(
                                         child: Text(
@@ -781,7 +752,8 @@ class _DashboardScreenState
                                           ),
                                         ),
                                       ),
-                                      const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF24598B)),
+                                      const Icon(Icons.arrow_forward_rounded,
+                                          size: 18, color: Color(0xFF24598B)),
                                     ],
                                   ),
                                 ),
@@ -790,9 +762,7 @@ class _DashboardScreenState
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 28),
-
                       const Text(
                         'MORE FEATURES',
                         style: TextStyle(
@@ -802,9 +772,7 @@ class _DashboardScreenState
                           letterSpacing: 1,
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
                       Row(
                         children: [
                           Expanded(
@@ -832,9 +800,7 @@ class _DashboardScreenState
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 11),
-
                       Row(
                         children: [
                           Expanded(
@@ -863,9 +829,7 @@ class _DashboardScreenState
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 11),
-
                       Row(
                         children: [
                           Expanded(
@@ -875,7 +839,8 @@ class _DashboardScreenState
                               subtitle: 'Get assistance',
                               color: const Color(0xFF5B78A6),
                               onTap: () {
-                                Navigator.of(context).pushNamed('/help-support');
+                                Navigator.of(context)
+                                    .pushNamed('/help-support');
                               },
                             ),
                           ),
@@ -887,13 +852,13 @@ class _DashboardScreenState
                               subtitle: 'Guardian Circle',
                               color: const Color(0xFF3E7C8F),
                               onTap: () {
-                                Navigator.of(context).pushNamed('/about-guardian-circle');
+                                Navigator.of(context)
+                                    .pushNamed('/about-guardian-circle');
                               },
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 10),
                     ],
                   ),
@@ -928,8 +893,7 @@ class _DashboardScreenState
   // ============================================================
 
   String _relativeTime(DateTime t) {
-    final diff =
-        DateTime.now().difference(t);
+    final diff = DateTime.now().difference(t);
 
     if (diff.inSeconds < 60) {
       return 'just now';
@@ -1209,11 +1173,9 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               Icons.cloud_off_rounded,
@@ -1223,12 +1185,8 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Unable to reach Guardian Circle.\n$message',
-              textAlign:
-                  TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.black87,
                   ),
             ),
@@ -1259,12 +1217,9 @@ class EscalationAlertScreen extends ConsumerWidget {
     WidgetRef ref,
   ) {
     final reason =
-        alertData['reason']?.toString() ??
-            'SOS / fall-like event detected';
+        alertData['reason']?.toString() ?? 'SOS / fall-like event detected';
 
-    final risk =
-        alertData['risk_level']?.toString() ??
-            'CRITICAL';
+    final risk = alertData['risk_level']?.toString() ?? 'CRITICAL';
 
     return PopScope(
       canPop: false,
@@ -1292,8 +1247,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFD32F2F)
-                            .withValues(alpha: 0.22),
+                        color: const Color(0xFFD32F2F).withValues(alpha: 0.22),
                         blurRadius: 22,
                         offset: const Offset(0, 10),
                       ),
@@ -1318,9 +1272,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                           size: 42,
                         ),
                       ),
-
                       const SizedBox(height: 18),
-
                       const Text(
                         'CRITICAL ALERT',
                         textAlign: TextAlign.center,
@@ -1331,9 +1283,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                           letterSpacing: 0.5,
                         ),
                       ),
-
                       const SizedBox(height: 8),
-
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -1396,13 +1346,10 @@ class EscalationAlertScreen extends ConsumerWidget {
                           size: 23,
                         ),
                       ),
-
                       const SizedBox(width: 13),
-
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'What happened?',
@@ -1413,9 +1360,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                                 letterSpacing: 0.4,
                               ),
                             ),
-
                             const SizedBox(height: 5),
-
                             Text(
                               reason,
                               style: const TextStyle(
@@ -1493,8 +1438,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                           return;
                         }
 
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
                               'Alert acknowledged successfully',
@@ -1508,8 +1452,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                           return;
                         }
 
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               'Could not acknowledge alert: $e',
@@ -1522,8 +1465,7 @@ class EscalationAlertScreen extends ConsumerWidget {
                       foregroundColor: const Color(0xFF1F3A5F),
                       minimumSize: const Size.fromHeight(56),
                       side: BorderSide(
-                        color: const Color(0xFF1F3A5F)
-                            .withValues(alpha: 0.18),
+                        color: const Color(0xFF1F3A5F).withValues(alpha: 0.18),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
