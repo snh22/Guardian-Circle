@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.database.database import get_db
 from app.models.event import Event
+from app.models.alert import Alert
 from app.models.user import User
 from app.schemas.event import EventCreate, EventResponse
 
@@ -25,6 +26,21 @@ def create_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+
+    # Automatically create a caretaker alert for critical fall events.
+    if (
+        data.event_type.lower() == "fall"
+        and data.risk_level.lower() == "critical"
+    ):
+        alert = Alert(
+            user_id=1,
+            risk_level="CRITICAL",
+            reason="Fall detected by patient sensor",
+            status="active",
+        )
+
+        db.add(alert)
+        db.commit()
 
     return event
 
