@@ -9,9 +9,12 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/auth_gate.dart';
 import 'features/ble/presentation/screens/ble_connection_screen.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'features/dashboard/presentation/screens/activity_history_screen.dart';
 import 'features/map/presentation/screens/live_map_screen.dart';
 import 'features/trips/presentation/screens/trips_screen.dart';
 import 'features/profile/presentation/screens/elderly_profile_screen.dart';
+import 'features/support/presentation/screens/help_support_screen.dart';
+import 'features/about/presentation/screens/about_guardian_circle_screen.dart';
 
 void main() {
   // Stops google_fonts from trying to download fonts over the network at
@@ -40,7 +43,10 @@ class GuardianCircleApp extends StatelessWidget {
         '/ble': (_) => const BleConnectionScreen(),
         '/trips': (_) => const TripsScreen(),
         '/elderly-profile': (_) => const ElderlyProfileScreen(),
+        '/help-support': (_) => const HelpSupportScreen(),
+        '/about-guardian-circle': (_) => const AboutGuardianCircleScreen(),
         '/dashboard': (_) => const DashboardScreen(),
+        '/activity-history': (_) => const ActivityHistoryScreen(),
         '/guardian-ble': (_) => const GuardianBleAdvertiserScreen(),
       },
     );

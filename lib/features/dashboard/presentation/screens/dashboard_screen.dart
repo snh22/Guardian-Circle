@@ -442,7 +442,8 @@ class _DashboardScreenState
                         ),
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 11),
+
 
                       Material(
                         color: Colors.transparent,
@@ -741,15 +742,52 @@ class _DashboardScreenState
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF183B60)
-                                  .withValues(alpha: 0.055),
+                              color: const Color(0xFF183B60).withValues(alpha: 0.055),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
                           ],
                         ),
-                        child: EventTimelineList(
-                          events: events,
+                        child: Column(
+                          children: [
+                            EventTimelineList(
+                              events: events.take(3).toList(),
+                            ),
+                            if (events.length > 3) ...[
+                              const SizedBox(height: 10),
+                              const Divider(
+                                height: 1,
+                                color: Color(0xFFE8ECF2),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context).pushNamed('/activity-history');
+                                },
+                                borderRadius: BorderRadius.circular(14),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.history_rounded, size: 18, color: Color(0xFF24598B)),
+                                      const SizedBox(width: 8),
+                                      const Expanded(
+                                        child: Text(
+                                          'View All Activities',
+                                          style: TextStyle(
+                                            color: Color(0xFF24598B),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
+                                      const Icon(Icons.arrow_forward_rounded, size: 18, color: Color(0xFF24598B)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
 
@@ -820,6 +858,36 @@ class _DashboardScreenState
                               color: const Color(0xFFD98A00),
                               onTap: () {
                                 Navigator.of(context).pushNamed('/map');
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 11),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.help_outline_rounded,
+                              title: 'Help & Support',
+                              subtitle: 'Get assistance',
+                              color: const Color(0xFF5B78A6),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/help-support');
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.info_outline_rounded,
+                              title: 'About',
+                              subtitle: 'Guardian Circle',
+                              color: const Color(0xFF3E7C8F),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/about-guardian-circle');
                               },
                             ),
                           ),
