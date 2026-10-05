@@ -130,7 +130,19 @@ class TimelineEvent {
       id: '${json['event_id']}',
       kind: _eventKindFromString(eventType),
       summary: _summaryFromEventType(eventType),
-      timestamp: DateTime.parse(json['timestamp'] as String).toLocal(),
+      timestamp: (() {
+        final parsed = DateTime.parse(json['timestamp'] as String);
+        return DateTime.utc(
+          parsed.year,
+          parsed.month,
+          parsed.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+          parsed.millisecond,
+          parsed.microsecond,
+        ).toLocal();
+      })(),
       associatedRisk: json['risk_level'] != null
           ? riskLevelFromString(json['risk_level'] as String)
           : null,

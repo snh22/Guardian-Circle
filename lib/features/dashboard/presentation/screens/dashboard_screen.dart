@@ -7,10 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/guardian_status.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/network/api_service.dart';
+import '../../../../core/constants/risk_level.dart';
 import '../../providers/dashboard_provider.dart';
-import '../widgets/risk_status_card.dart';
 import '../widgets/event_timeline.dart';
-import '../widgets/quick_actions.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -140,52 +139,14 @@ class _DashboardScreenState
 
   @override
   Widget build(BuildContext context) {
-    final statusAsync =
-        ref.watch(guardianStatusProvider);
-
-    final eventsAsync =
-        ref.watch(dashboardEventsProvider);
+    final statusAsync = ref.watch(guardianStatusProvider);
+    final eventsAsync = ref.watch(dashboardEventsProvider);
 
     final events =
-        eventsAsync.valueOrNull ??
-            const <TimelineEvent>[];
+        eventsAsync.valueOrNull ?? const <TimelineEvent>[];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Guardian Circle',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.watch_outlined,
-              color: Colors.black87,
-            ),
-            tooltip: 'Wearable connection',
-            onPressed: () {
-              Navigator.of(context).pushNamed('/ble');
-            },
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.logout_outlined,
-              color: Colors.black87,
-            ),
-            tooltip: 'Log out',
-            onPressed: () {
-              ref
-                  .read(
-                    authControllerProvider.notifier,
-                  )
-                  .logout();
-            },
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF5F7FB),
       body: statusAsync.when(
         loading: () {
           return const Center(
@@ -198,317 +159,677 @@ class _DashboardScreenState
           );
         },
         data: (status) {
+
+          final Color riskColor;
+          final Color riskLight;
+          final IconData riskIcon;
+          final String riskTitle;
+          final String riskSubtitle;
+
+          switch (status.riskLevel) {
+            case RiskLevel.low:
+              riskColor = const Color(0xFF1E9B67);
+              riskLight = const Color(0xFFE6F7EF);
+              riskIcon = Icons.verified_rounded;
+              riskTitle = 'SAFE';
+              riskSubtitle = 'No immediate concerns detected';
+              break;
+
+            case RiskLevel.medium:
+              riskColor = const Color(0xFFD98A00);
+              riskLight = const Color(0xFFFFF2D9);
+              riskIcon = Icons.warning_amber_rounded;
+              riskTitle = 'CAUTION';
+              riskSubtitle = 'Please keep an eye on the patient';
+              break;
+
+            case RiskLevel.high:
+              riskColor = const Color(0xFFE46A2A);
+              riskLight = const Color(0xFFFFE9DE);
+              riskIcon = Icons.priority_high_rounded;
+              riskTitle = 'HIGH RISK';
+              riskSubtitle = 'Attention may be required';
+              break;
+
+            case RiskLevel.critical:
+              riskColor = const Color(0xFFD9363E);
+              riskLight = const Color(0xFFFFE4E6);
+              riskIcon = Icons.emergency_rounded;
+              riskTitle = 'CRITICAL';
+              riskSubtitle = 'Immediate attention may be required';
+              break;
+          }
+
+          final batteryText = status.batteryPercent == null
+              ? '--'
+              : '${status.batteryPercent!.round()}%';
+
           return RefreshIndicator(
+            color: const Color(0xFF1F3A5F),
             onRefresh: () async {
               refreshDashboard(ref);
               await _checkForAlerts();
             },
             child: ListView(
-              padding: const EdgeInsets.all(20),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.black.withValues(alpha: 0.05),
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 28),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF163B68),
+                        Color(0xFF24598B),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.035),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(34),
+                      bottomRight: Radius.circular(34),
+                    ),
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 29,
-                            backgroundColor:
-                                const Color(0xFFE8EEF5),
-                            child: const Icon(
-                              Icons.person_rounded,
-                              size: 30,
-                              color: Color(0xFF1F3A5F),
-                            ),
-                          ),
-                          Positioned(
-                            right: 1,
-                            bottom: 1,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(width: 14),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            const Text(
-                              'PATIENT MONITORING',
-                              style: TextStyle(
-                                color: Color(0xFF1F3A5F),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.0,
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.13),
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: const Icon(
+                                Icons.shield_rounded,
+                                color: Colors.white,
+                                size: 27,
                               ),
                             ),
-
-                            const SizedBox(height: 4),
-
-                            Text(
-                              status.userName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w800,
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'GUARDIAN CIRCLE',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Safer today • Healthier tomorrow',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
+                            _HeaderIconButton(
+                              icon: Icons.watch_outlined,
+                              tooltip: 'Wearable connection',
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/ble');
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _HeaderIconButton(
+                              icon: Icons.logout_rounded,
+                              tooltip: 'Log out',
+                              onTap: () {
+                                ref
+                                    .read(
+                                      authControllerProvider.notifier,
+                                    )
+                                    .logout();
+                              },
+                            ),
+                          ],
+                        ),
 
-                            const SizedBox(height: 5),
+                        const SizedBox(height: 24),
 
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.sync_rounded,
-                                  size: 14,
-                                  color: Colors.green,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF63D6A0)
+                                .withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                              color: const Color(0xFF9AE6C2)
+                                  .withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.circle,
+                                color: Color(0xFF78E2A8),
+                                size: 8,
+                              ),
+                              SizedBox(width: 7),
+                              Text(
+                                'LIVE MONITORING',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.9,
                                 ),
-                                const SizedBox(width: 5),
-                                Flexible(
-                                  child: Text(
-                                    'Updated ${_relativeTime(status.lastUpdated)}',
-                                    overflow:
-                                        TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Colors.black54,
-                                          fontWeight:
-                                              FontWeight.w500,
-                                        ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        Row(
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 58,
+                                  height: 58,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.14),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_rounded,
+                                    color: Color(0xFF24598B),
+                                    size: 32,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 1,
+                                  bottom: 1,
+                                  child: Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF59D493),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFF24598B),
+                                        width: 3,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'PATIENT MONITORING',
+                                    style: TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    status.userName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 21,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Updated ${_relativeTime(status.lastUpdated)}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 22, 18, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'CURRENT SAFETY STATUS',
+                        style: TextStyle(
+                          color: Color(0xFF687386),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
 
-                // ==================================================
-                // RISK STATUS
-                // ==================================================
+                      const SizedBox(height: 10),
 
-                RiskStatusCard(
-                  status: status,
-                  onTap: () {
-                    Navigator.of(context)
-                        .pushNamed('/map');
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // ==================================================
-                // QUICK ACTIONS
-                // ==================================================
-
-                QuickActionsRow(
-                  onViewMap: () {
-                    Navigator.of(context)
-                        .pushNamed('/map');
-                  },
-                  onCall: () {
-                    _placeCall(context);
-                  },
-                  onAcknowledge: () {
-                    _checkForAlerts();
-                  },
-                ),
-
-                const SizedBox(height: 28),
-
-                // ==================================================
-                // RECENT ACTIVITY
-                // ==================================================
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Recent Activity',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w800,
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).pushNamed('/map');
+                          },
+                          borderRadius: BorderRadius.circular(28),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: riskColor.withValues(alpha: 0.10),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF183B60)
+                                      .withValues(alpha: 0.08),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 10),
                                 ),
-                          ),
-                          const SizedBox(height: 3),
-                          const Text(
-                            'Latest updates from the patient',
-                            style: TextStyle(
-                              color: Colors.black45,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 72,
+                                      height: 72,
+                                      decoration: BoxDecoration(
+                                        color: riskLight,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        riskIcon,
+                                        color: riskColor,
+                                        size: 38,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            riskTitle,
+                                            style: TextStyle(
+                                              color: riskColor,
+                                              fontSize: 27,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            riskSubtitle,
+                                            style: const TextStyle(
+                                              color: Color(0xFF687386),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 15,
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF7F9FC),
+                                    borderRadius: BorderRadius.circular(19),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: _StatusMetric(
+                                          icon: Icons.location_on_rounded,
+                                          label: 'SAFE ZONE',
+                                          value:
+                                              status.safeZoneState.zoneLabel,
+                                          color: const Color(0xFF2674B8),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: 38,
+                                        color: const Color(0xFFE2E7EE),
+                                      ),
+                                      Expanded(
+                                        child: _StatusMetric(
+                                          icon: Icons.battery_6_bar_rounded,
+                                          label: 'BATTERY',
+                                          value: batteryText,
+                                          color: const Color(0xFF1E9B67),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: 38,
+                                        color: const Color(0xFFE2E7EE),
+                                      ),
+                                      Expanded(
+                                        child: _StatusMetric(
+                                          icon: Icons.schedule_rounded,
+                                          label: 'UPDATED',
+                                          value:
+                                              _relativeTime(status.lastUpdated),
+                                          color: const Color(0xFF7A65B7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 13),
+
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.touch_app_rounded,
+                                      size: 15,
+                                      color: riskColor,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Tap to view patient location',
+                                      style: TextStyle(
+                                        color: riskColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 17,
+                                      color: riskColor,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
 
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8EEF5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      const SizedBox(height: 24),
+
+                      Row(
                         children: [
-                          const Icon(
-                            Icons.history_rounded,
-                            size: 14,
-                            color: Color(0xFF1F3A5F),
+                          const Expanded(
+                            child: Text(
+                              'QUICK ACTIONS',
+                              style: TextStyle(
+                                color: Color(0xFF687386),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 5),
                           Text(
-                            '${events.length}',
+                            '${events.length} recent events',
                             style: const TextStyle(
-                              color: Color(0xFF1F3A5F),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF9AA3B2),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 12),
+                      const SizedBox(height: 11),
 
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.black.withValues(alpha: 0.05),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.035),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModernActionCard(
+                              icon: Icons.call_rounded,
+                              title: 'Call',
+                              subtitle: 'Patient',
+                              color: const Color(0xFF1E9B67),
+                              onTap: () {
+                                _placeCall(context);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ModernActionCard(
+                              icon: Icons.notifications_active_rounded,
+                              title: 'Alerts',
+                              subtitle: 'Check now',
+                              color: const Color(0xFFD98A00),
+                              onTap: () {
+                                _checkForAlerts();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ModernActionCard(
+                              icon: Icons.location_on_rounded,
+                              title: 'Location',
+                              subtitle: 'View map',
+                              color: const Color(0xFF2674B8),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/map');
+                              },
+                            ),
+                          ),
+                        ],
                       ),
+
+                      const SizedBox(height: 28),
+
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'RECENT ACTIVITY',
+                                  style: TextStyle(
+                                    color: Color(0xFF687386),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  'Latest updates from the patient',
+                                  style: TextStyle(
+                                    color: Color(0xFF9AA3B2),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF1F8),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.history_rounded,
+                                  size: 14,
+                                  color: Color(0xFF24598B),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${events.length}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF24598B),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: const Color(0xFFE8ECF2),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF183B60)
+                                  .withValues(alpha: 0.055),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: EventTimelineList(
+                          events: events,
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      const Text(
+                        'MORE FEATURES',
+                        style: TextStyle(
+                          color: Color(0xFF687386),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.location_on_rounded,
+                              title: 'Live Location',
+                              subtitle: 'Track patient',
+                              color: const Color(0xFF2674B8),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/map');
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.route_rounded,
+                              title: 'Planned Trips',
+                              subtitle: 'Manage routes',
+                              color: const Color(0xFF7A65B7),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/trips');
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 11),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.person_rounded,
+                              title: 'Patient Profile',
+                              subtitle: 'View details',
+                              color: const Color(0xFF1E9B67),
+                              onTap: () {
+                                Navigator.of(context)
+                                    .pushNamed('/elderly-profile');
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: _ModernFeatureTile(
+                              icon: Icons.security_rounded,
+                              title: 'Risk Status',
+                              subtitle: 'Safety overview',
+                              color: const Color(0xFFD98A00),
+                              onTap: () {
+                                Navigator.of(context).pushNamed('/map');
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
                     ],
                   ),
-                  child: EventTimelineList(
-                    events: events,
-                  ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // ==================================================
-                // MORE FEATURES
-                // ==================================================
-
-                const SizedBox(height: 4),
-
-                Text(
-                  'MORE FEATURES',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                ),
-
-                const SizedBox(height: 12),
-
-                _DashboardFeatureCard(
-                  icon: Icons.location_on_rounded,
-                  title: 'Live Location',
-                  subtitle:
-                      'View the patient\'s current location',
-                  color: const Color(0xFF1F3A5F),
-                  onTap: () {
-                    Navigator.of(context)
-                        .pushNamed('/map');
-                  },
-                ),
-
-                const SizedBox(height: 12),
-
-                _DashboardFeatureCard(
-                  icon: Icons.route_rounded,
-                  title: 'Planned Trips',
-                  subtitle:
-                      'Manage upcoming journeys and routes',
-                  color: const Color(0xFF6C63A8),
-                  onTap: () {
-                    Navigator.of(context)
-                        .pushNamed('/trips');
-                  },
-                ),
-
-                const SizedBox(height: 12),
-
-                _DashboardFeatureCard(
-                  icon: Icons.person_rounded,
-                  title: 'Elderly Profile',
-                  subtitle:
-                      'View and manage patient information',
-                  color: const Color(0xFF1E8E5A),
-                  onTap: () {
-                    Navigator.of(context)
-                        .pushNamed('/elderly-profile');
-                  },
-                ),
-
-                const SizedBox(height: 12),
               ],
             ),
           );
@@ -558,14 +879,98 @@ class _DashboardScreenState
 // ERROR STATE
 // ================================================================
 
-class _DashboardFeatureCard extends StatelessWidget {
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        tooltip: tooltip,
+        onPressed: onTap,
+        icon: Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusMetric extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatusMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 19),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF9AA3B2),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF26364A),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModernActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
-  const _DashboardFeatureCard({
+  const _ModernActionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -582,74 +987,140 @@ class _DashboardFeatureCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          height: 108,
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: color.withValues(alpha: 0.12),
+              color: color.withValues(alpha: 0.10),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
+                color: const Color(0xFF183B60).withValues(alpha: 0.045),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(15),
+                  color: color.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 25,
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF26364A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Color(0xFF9AA3B2),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-              const SizedBox(width: 14),
+class _ModernFeatureTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
+  const _ModernFeatureTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(21),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(21),
+        child: Container(
+          height: 112,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(
+              color: const Color(0xFFE8ECF2),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF183B60).withValues(alpha: 0.045),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black87,
-                      ),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      subtitle,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        color: Color(0xFF26364A),
                         fontSize: 12,
-                        color: Colors.black45,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: color.withValues(alpha: 0.7),
+                    size: 16,
+                  ),
+                ],
               ),
-
-              const SizedBox(width: 8),
-
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: color.withValues(alpha: 0.55),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Color(0xFF9AA3B2),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -1054,4 +1525,3 @@ class EscalationAlertScreen extends ConsumerWidget {
     );
   }
 }
-

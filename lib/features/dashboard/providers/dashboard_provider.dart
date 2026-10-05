@@ -137,12 +137,22 @@ final fallEventStreamProvider =
         data['timestamp']?.toString();
 
     final parsedTimestamp =
-      timestampString != null
-        ? DateTime.tryParse(timestampString)
-        : null;
+        timestampString != null
+            ? DateTime.tryParse(timestampString)
+            : null;
 
-    final timestamp =
-      parsedTimestamp?.toLocal() ?? DateTime.now();
+    final timestamp = parsedTimestamp != null
+        ? DateTime.utc(
+            parsedTimestamp.year,
+            parsedTimestamp.month,
+            parsedTimestamp.day,
+            parsedTimestamp.hour,
+            parsedTimestamp.minute,
+            parsedTimestamp.second,
+            parsedTimestamp.millisecond,
+            parsedTimestamp.microsecond,
+          ).toLocal()
+        : DateTime.now();
 
     return TimelineEvent(
       id: eventId,

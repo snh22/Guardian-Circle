@@ -83,7 +83,7 @@ class _SensorPageState extends State<SensorPage> {
   // Paste your FRESH JWT here.
   // DO NOT share this token with anyone.
   static const String accessToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZXhwIjoxNzkxMDk3ODg5fQ.8ZmustPQcay6-dErDSVi3t0kUmEEZXRkakCfDMAN-VI';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZXhwIjoxNzkxMTc1Mzg2fQ.KyhOH9cGYD3f9eskdmEkhOYJq7IxUuhzkR03YpZKWXA';
 
   @override
   void initState() {
@@ -110,11 +110,15 @@ class _SensorPageState extends State<SensorPage> {
   // ============================================================
 
   Future<void> sendAutomaticFall() async {
+    debugPrint('🔥 sendAutomaticFall() CALLED');
+
     setState(() {
       sendingFall = true;
     });
 
-    try {
+  try {
+    debugPrint('🔥 Sending FALL EVENT...');
+    
       // STEP 1: Send fall event
       final eventResponse = await http.post(
         Uri.parse(eventsUrl),
