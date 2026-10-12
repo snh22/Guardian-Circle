@@ -50,7 +50,12 @@ class GuardianStatus {
   }
 }
 
-enum SafeZoneStatus { insideHome, outsidePlannedTrip, outsideUnplanned, unknown }
+enum SafeZoneStatus {
+  insideHome,
+  outsidePlannedTrip,
+  outsideUnplanned,
+  unknown
+}
 
 class SafeZoneState {
   final SafeZoneStatus status;
@@ -66,12 +71,22 @@ class SafeZoneState {
   String get displayText => switch (status) {
         SafeZoneStatus.insideHome => 'Inside $zoneLabel',
         SafeZoneStatus.outsidePlannedTrip => 'Outside $zoneLabel • Trip active',
-        SafeZoneStatus.outsideUnplanned => 'Outside $zoneLabel • No trip planned',
+        SafeZoneStatus.outsideUnplanned =>
+          'Outside $zoneLabel • No trip planned',
         SafeZoneStatus.unknown => 'Zone unknown',
       };
 }
 
-enum EventKind { movement, location, ble, sos, fallLike, checkIn, tripStart, tripEnd }
+enum EventKind {
+  movement,
+  location,
+  ble,
+  sos,
+  fallLike,
+  checkIn,
+  tripStart,
+  tripEnd
+}
 
 EventKind _eventKindFromString(String value) {
   return switch (value.toLowerCase()) {
@@ -97,6 +112,7 @@ String _summaryFromEventType(String eventType) {
     'ble' => 'Band connected',
     'sos' => 'SOS triggered',
     'fall_like' || 'fall' => 'Possible fall detected',
+    'patient_ok' => 'Patient confirmed OK',
     'check_in' => 'Check-in received',
     'trip_start' => 'Planned trip started',
     'trip_end' => 'Planned trip ended',
@@ -149,7 +165,6 @@ class TimelineEvent {
     );
   }
 }
-
 
 enum BandConnectionState { disconnected, scanning, connecting, connected }
 

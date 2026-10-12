@@ -1,93 +1,76 @@
-import 'dart:math';
-
 class BleProximityEngine {
   // ------------------------------------------------------------
-  // Calibration points from the OPPO A18 testing
+  // RSSI proximity processing
   // ------------------------------------------------------------
   //
-  // RSSI values are represented as negative dBm internally.
+  // IMPORTANT:
+  // RSSI is used only as a proximity signal.
+  // We do NOT convert RSSI into an exact distance.
   //
-  // Approximate measurements:
-  // 1 m  -> -47.4 dBm
-  // 2 m  -> -56.0 dBm
-  // 3 m  -> -59.4 dBm
-  // 5 m  -> -61.8 dBm
-  // 10 m -> -65.8 dBm
+  // These are provisional starting thresholds based on the
+  // current physical calibration:
   //
-  // RSSI is noisy, so we never use a single reading.
+  // CLOSE: RSSI >= -74 dBm
+  // NEAR:  -84 dBm < RSSI < -74 dBm
+  // FAR:   RSSI <= -84 dBm
+  //
+  // These thresholds must be physically validated after
+  // smoothing is integrated with the real BLE scanner.
 
-  static const List<_CalibrationPoint> _calibrationPoints = [
-    _CalibrationPoint(1.0, -47.4),
-    _CalibrationPoint(2.0, -56.0),
-    _CalibrationPoint(3.0, -59.4),
-    _CalibrationPoint(5.0, -61.8),
-    _CalibrationPoint(10.0, -65.8),
-  ];
+  static const int windowSize = 7;
+  static const int confirmationSamples = 3;
 
-  // ------------------------------------------------------------
-  // Configurable Guardian Circle
-  // ------------------------------------------------------------
+  static const double closeThreshold = -74.0;
+  static const double farThreshold = -84.0;
 
-  double _boundaryDistance = 10.0;
-
-  double _boundaryRssi = -65.8;
-
-  double _insideThreshold = -64.0;
-
-  double _outsideThreshold = -67.5;
-
-  // ------------------------------------------------------------
-  // Filtering
-  // ------------------------------------------------------------
-
-  static const int windowSize = 15;
+  // Hysteresis prevents rapid switching around thresholds.
+  //
+  // Example:
+  // FAR -> NEAR requires RSSI to become stronger than -80 dBm.
+  // NEAR -> FAR requires RSSI to become weaker than -84 dBm.
+  //
+  // CLOSE uses the same principle around -74 dBm.
+  static const double hysteresis = 2.0;
 
   final List<double> _rssiWindow = [];
 
-  // ------------------------------------------------------------
-  // State
-  // ------------------------------------------------------------
+  double? _rawRssi;
+  double? _smoothedRssi;
 
-  String state = 'inside';
+  String _state = 'unknown';
 
-  int _outsideConfirmationCount = 0;
-  int _insideConfirmationCount = 0;
-
-  static const int confirmationSamples = 5;
+  int _closeConfirmationCount = 0;
+  int _nearConfirmationCount = 0;
+  int _farConfirmationCount = 0;
 
   // ------------------------------------------------------------
   // Public getters
   // ------------------------------------------------------------
 
-  double get boundaryDistance => _boundaryDistance;
-
-  double get boundaryRssi => _boundaryRssi;
-
-  double get insideThreshold => _insideThreshold;
-
-  double get outsideThreshold => _outsideThreshold;
+  int get sampleCount => _rssiWindow.length;
 
   List<double> get rssiSamples =>
       List.unmodifiable(_rssiWindow);
 
-  int get sampleCount => _rssiWindow.length;
+  double? get rawRssi => _rawRssi;
 
-  // ------------------------------------------------------------
-  // Change Guardian Circle radius
-  // ------------------------------------------------------------
+  double? get smoothedRssi => _smoothedRssi;
 
-  void setBoundaryDistance(double distance) {
-    if (distance <= 0) {
-      return;
-    }
+  String get state => _state;
 
-    _boundaryDistance = distance;
-
-    _recalculateThresholds();
-
-    // Re-evaluate from the current filtered value.
-    if (_rssiWindow.isNotEmpty) {
-      _updateState(_filteredRssi);
+  // Human-readable label for UI.
+  String get proximityLabel {
+    switch (_state) {
+      case 'close':
+        return 'Within ~5 m';
+      case 'near':
+        return '~5–10 m';
+      case 'far':
+        return 'Beyond ~10 m';
+      case 'signal_lost':
+        return 'Patient Signal Lost';
+      default:
+        return 'Waiting for patient signal';
     }
   }
 
@@ -96,186 +79,139 @@ class BleProximityEngine {
   // ------------------------------------------------------------
 
   void addRssi(int rssi) {
-    final value = rssi.toDouble();
+    _rawRssi = rssi.toDouble();
 
-    _rssiWindow.add(value);
+    _rssiWindow.add(_rawRssi!);
 
     if (_rssiWindow.length > windowSize) {
       _rssiWindow.removeAt(0);
     }
 
-    if (_rssiWindow.length < windowSize) {
-      state = 'boundary';
-      return;
-    }
+    _smoothedRssi = _calculateAverage();
 
-    _updateState(_filteredRssi);
+    _updateState(_smoothedRssi!);
   }
 
   // ------------------------------------------------------------
-  // Filtered RSSI
+  // Rolling average
   // ------------------------------------------------------------
 
-  double get _filteredRssi {
+  double _calculateAverage() {
     if (_rssiWindow.isEmpty) {
       return 0;
     }
 
-    final sorted = List<double>.from(_rssiWindow)
-      ..sort();
+    final total =
+        _rssiWindow.reduce((a, b) => a + b);
 
-    // Trim the weakest and strongest readings.
-    final trimmed = sorted.sublist(2, sorted.length - 2);
-
-    return trimmed.reduce((a, b) => a + b) /
-        trimmed.length;
-  }
-
-  double get filteredRssi => _filteredRssi;
-
-  // ------------------------------------------------------------
-  // Signal confidence
-  // ------------------------------------------------------------
-
-  double get confidence {
-    if (_rssiWindow.length < windowSize) {
-      return 0;
-    }
-
-    final mean = _filteredRssi;
-
-    double variance = 0;
-
-    for (final value in _rssiWindow) {
-      final difference = value - mean;
-      variance += difference * difference;
-    }
-
-    variance /= _rssiWindow.length;
-
-    final standardDeviation = sqrt(variance);
-
-    if (standardDeviation <= 2.0) {
-      return 95;
-    }
-
-    if (standardDeviation <= 4.0) {
-      return 80;
-    }
-
-    if (standardDeviation <= 6.0) {
-      return 60;
-    }
-
-    if (standardDeviation <= 9.0) {
-      return 40;
-    }
-
-    return 20;
+    return total / _rssiWindow.length;
   }
 
   // ------------------------------------------------------------
-  // State machine
+  // Stable proximity state
   // ------------------------------------------------------------
 
   void _updateState(double rssi) {
-    // Strong signal = definitely inside.
-    if (rssi >= _insideThreshold) {
-      _insideConfirmationCount++;
+    final candidate = _candidateState(rssi);
 
-      _outsideConfirmationCount = 0;
+    switch (candidate) {
+      case 'close':
+        _closeConfirmationCount++;
+        _nearConfirmationCount = 0;
+        _farConfirmationCount = 0;
 
-      if (_insideConfirmationCount >=
-          confirmationSamples) {
-        state = 'inside';
-      }
+        if (_closeConfirmationCount >= confirmationSamples) {
+          _state = 'close';
+        }
+        break;
 
-      return;
+      case 'near':
+        _nearConfirmationCount++;
+        _closeConfirmationCount = 0;
+        _farConfirmationCount = 0;
+
+        if (_nearConfirmationCount >= confirmationSamples) {
+          _state = 'near';
+        }
+        break;
+
+      case 'far':
+        _farConfirmationCount++;
+        _closeConfirmationCount = 0;
+        _nearConfirmationCount = 0;
+
+        if (_farConfirmationCount >= confirmationSamples) {
+          _state = 'far';
+        }
+        break;
     }
-
-    // Weak signal = possible outside.
-    if (rssi <= _outsideThreshold) {
-      _outsideConfirmationCount++;
-
-      _insideConfirmationCount = 0;
-
-      if (_outsideConfirmationCount >=
-          confirmationSamples) {
-        state = 'outside';
-      }
-
-      return;
-    }
-
-    // Between the two thresholds = boundary.
-    _outsideConfirmationCount = 0;
-    _insideConfirmationCount = 0;
-
-    state = 'boundary';
   }
 
   // ------------------------------------------------------------
-  // Threshold calculation
+  // Hysteresis-aware candidate state
   // ------------------------------------------------------------
 
-  void _recalculateThresholds() {
-    _boundaryRssi =
-        _estimateRssiForDistance(_boundaryDistance);
+  String _candidateState(double rssi) {
+    switch (_state) {
+      case 'close':
+        // Once CLOSE, do not leave it until signal becomes
+        // meaningfully weaker than the normal CLOSE boundary.
+        if (rssi >= closeThreshold - hysteresis) {
+          return 'close';
+        }
 
-    // Hysteresis:
-    //
-    // insideThreshold is slightly stronger than the
-    // boundary value.
-    //
-    // outsideThreshold is slightly weaker than the
-    // boundary value.
-    //
-    // This prevents rapid INSIDE <-> OUTSIDE switching
-    // when RSSI fluctuates around the boundary.
+        if (rssi <= farThreshold) {
+          return 'far';
+        }
 
-    _insideThreshold = _boundaryRssi + 2.0;
+        return 'near';
 
-    _outsideThreshold = _boundaryRssi - 2.0;
+      case 'far':
+        // Once FAR, do not leave it until signal becomes
+        // meaningfully stronger than the normal FAR boundary.
+        if (rssi <= farThreshold + hysteresis) {
+          return 'far';
+        }
+
+        if (rssi >= closeThreshold) {
+          return 'close';
+        }
+
+        return 'near';
+
+      case 'near':
+      case 'unknown':
+      default:
+        if (rssi >= closeThreshold) {
+          return 'close';
+        }
+
+        if (rssi <= farThreshold) {
+          return 'far';
+        }
+
+        return 'near';
+    }
   }
 
   // ------------------------------------------------------------
-  // Estimate RSSI for requested distance
+  // Signal loss
   // ------------------------------------------------------------
+  //
+  // The scanner/provider will decide when the patient
+  // advertisement has not been received for the configured
+  // timeout.
+  //
+  // This method does NOT start another scanner or timer.
+  // That keeps signal-loss handling separate from the
+  // existing BLE scanning implementation.
 
-  double _estimateRssiForDistance(double distance) {
-    // Below first calibration point.
-    if (distance <= _calibrationPoints.first.distance) {
-      return _calibrationPoints.first.rssi;
-    }
+  void markSignalLost() {
+    _state = 'signal_lost';
 
-    // Above last calibration point.
-    if (distance >= _calibrationPoints.last.distance) {
-      return _calibrationPoints.last.rssi;
-    }
-
-    // Find the two calibration points surrounding
-    // the requested distance.
-    for (int i = 0;
-        i < _calibrationPoints.length - 1;
-        i++) {
-      final lower = _calibrationPoints[i];
-      final upper = _calibrationPoints[i + 1];
-
-      if (distance >= lower.distance &&
-          distance <= upper.distance) {
-        final distanceDifference =
-            upper.distance - lower.distance;
-
-        final position =
-            (distance - lower.distance) /
-                distanceDifference;
-
-        return lower.rssi +
-            (upper.rssi - lower.rssi) * position;
-      }
-    }
-
-    return _calibrationPoints.last.rssi;
+    _closeConfirmationCount = 0;
+    _nearConfirmationCount = 0;
+    _farConfirmationCount = 0;
   }
 
   // ------------------------------------------------------------
@@ -285,23 +221,13 @@ class BleProximityEngine {
   void reset() {
     _rssiWindow.clear();
 
-    state = 'inside';
+    _rawRssi = null;
+    _smoothedRssi = null;
 
-    _outsideConfirmationCount = 0;
-    _insideConfirmationCount = 0;
+    _state = 'unknown';
+
+    _closeConfirmationCount = 0;
+    _nearConfirmationCount = 0;
+    _farConfirmationCount = 0;
   }
-}
-
-// ------------------------------------------------------------
-// Calibration point
-// ------------------------------------------------------------
-
-class _CalibrationPoint {
-  final double distance;
-  final double rssi;
-
-  const _CalibrationPoint(
-    this.distance,
-    this.rssi,
-  );
 }

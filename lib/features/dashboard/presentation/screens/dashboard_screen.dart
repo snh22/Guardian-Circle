@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:vibration/vibration.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/guardian_status.dart';
@@ -9,7 +12,10 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../../core/network/api_service.dart';
 import '../../../../core/constants/risk_level.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../../ble/providers/ble_proximity_provider.dart';
 import '../widgets/event_timeline.dart';
+
+const String _caretakerEmergencyPhone = '+918999185152';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -132,6 +138,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(guardianStatusProvider);
     final eventsAsync = ref.watch(dashboardEventsProvider);
+    final bleProximity = ref.watch(bleProximityProvider);
 
     final events = eventsAsync.valueOrNull ?? const <TimelineEvent>[];
 
@@ -575,6 +582,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 18),
+
+                      // ======================================================
+                      // PATIENT BLE PROXIMITY
+                      // ======================================================
+                      _BleProximityCard(
+                        proximity: bleProximity,
+                      ),
+
                       const SizedBox(height: 24),
                       Row(
                         children: [
@@ -1162,6 +1178,228 @@ class _ModernFeatureTile extends StatelessWidget {
   }
 }
 
+class _BleProximityCard extends StatelessWidget {
+  const _BleProximityCard({
+    required this.proximity,
+  });
+
+  final BleProximityState proximity;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLost = proximity.signalLost;
+    final hasSignal = proximity.rawRssi != null;
+
+    final Color statusColor;
+    final Color statusBackground;
+    final IconData statusIcon;
+
+    if (isLost) {
+      statusColor = const Color(0xFFD9363E);
+      statusBackground = const Color(0xFFFFE4E6);
+      statusIcon = Icons.bluetooth_disabled_rounded;
+    } else if (!hasSignal) {
+      statusColor = const Color(0xFF687386);
+      statusBackground = const Color(0xFFF0F2F5);
+      statusIcon = Icons.bluetooth_searching_rounded;
+    } else {
+      switch (proximity.state) {
+        case 'close':
+          statusColor = const Color(0xFF1E9B67);
+          statusBackground = const Color(0xFFE6F7EF);
+          statusIcon = Icons.bluetooth_connected_rounded;
+          break;
+
+        case 'near':
+          statusColor = const Color(0xFFD98A00);
+          statusBackground = const Color(0xFFFFF2D9);
+          statusIcon = Icons.bluetooth_connected_rounded;
+          break;
+
+        case 'far':
+          statusColor = const Color(0xFFE46A2A);
+          statusBackground = const Color(0xFFFFE9DE);
+          statusIcon = Icons.bluetooth_connected_rounded;
+          break;
+
+        default:
+          statusColor = const Color(0xFF687386);
+          statusBackground = const Color(0xFFF0F2F5);
+          statusIcon = Icons.bluetooth_searching_rounded;
+      }
+    }
+
+    String formatRssi(double? value) {
+      if (value == null) return '--';
+      return '${value.toStringAsFixed(1)} dBm';
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 22),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFE4E8EF),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A163B68),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: statusBackground,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  statusIcon,
+                  color: statusColor,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'PATIENT BLE PROXIMITY',
+                      style: TextStyle(
+                        color: Color(0xFF687386),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Bluetooth signal monitoring',
+                      style: TextStyle(
+                        color: Color(0xFF1C2738),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            decoration: BoxDecoration(
+              color: statusBackground,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  statusIcon,
+                  color: statusColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    proximity.label,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _BleMetric(
+                  title: 'RAW RSSI',
+                  value: formatRssi(proximity.rawRssi),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _BleMetric(
+                  title: 'SMOOTHED RSSI',
+                  value: formatRssi(proximity.smoothedRssi),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BleMetric extends StatelessWidget {
+  const _BleMetric({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 11,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF9AA3B2),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF1C2738),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ErrorState extends StatelessWidget {
   final String message;
 
@@ -1201,7 +1439,7 @@ class _ErrorState extends StatelessWidget {
 // CRITICAL ESCALATION SCREEN
 // ================================================================
 
-class EscalationAlertScreen extends ConsumerWidget {
+class EscalationAlertScreen extends ConsumerStatefulWidget {
   final int alertId;
   final Map<String, dynamic> alertData;
 
@@ -1212,10 +1450,218 @@ class EscalationAlertScreen extends ConsumerWidget {
   });
 
   @override
+  ConsumerState<EscalationAlertScreen> createState() =>
+      _EscalationAlertScreenState();
+}
+
+class _EscalationAlertScreenState extends ConsumerState<EscalationAlertScreen> {
+  final AudioPlayer _alarmPlayer = AudioPlayer();
+  bool _alarmStopped = false;
+  bool _checkingStatus = false;
+  bool _acknowledgingManually = false;
+  bool _callTriggered = false;
+  Timer? _statusTimer;
+  Timer? _escalationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startAlarm();
+
+    _statusTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _checkPatientAcknowledgement(),
+    );
+
+    _escalationTimer = Timer(
+      const Duration(seconds: 20),
+      _escalateIfUnacknowledged,
+    );
+  }
+
+  Future<void> _escalateIfUnacknowledged() async {
+    if (!mounted || _callTriggered || _acknowledgingManually) return;
+
+    // Do not call a placeholder or an unconfigured number.
+    if (_caretakerEmergencyPhone.contains('X')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Automatic call not configured: set the caretaker phone number.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final alerts = await ApiService.getAlertsForUser(3);
+      if (!mounted || _acknowledgingManually || _callTriggered) return;
+
+      Map<String, dynamic>? matchingAlert;
+
+      for (final item in alerts) {
+        if (item is! Map) continue;
+
+        final alert = Map<String, dynamic>.from(item);
+        final id = int.tryParse(alert['alert_id']?.toString() ?? '');
+
+        if (id == widget.alertId) {
+          matchingAlert = alert;
+          break;
+        }
+      }
+
+      if (matchingAlert == null) return;
+
+      final status = matchingAlert['status']?.toString().toLowerCase();
+      if (status == 'resolved') {
+        _statusTimer?.cancel();
+        _escalationTimer?.cancel();
+        await _stopAlarm();
+
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Patient acknowledged: I AM OK'),
+          ),
+        );
+        return;
+      }
+
+      if (status != 'active' &&
+          status != 'unresolved' &&
+          status != 'pending' &&
+          status != 'critical') {
+        return;
+      }
+
+      _callTriggered = true;
+      final result = await FlutterPhoneDirectCaller.callNumber(
+        _caretakerEmergencyPhone,
+      );
+
+      if (!mounted) return;
+
+      if (result != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Direct call could not be started. Check call permission and SIM service.',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // If status verification fails, do not place a call blindly.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not verify alert status. Automatic call was not placed.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _checkPatientAcknowledgement() async {
+    if (!mounted || _checkingStatus || _acknowledgingManually) return;
+
+    _checkingStatus = true;
+
+    try {
+      final alerts = await ApiService.getAlertsForUser(3);
+      if (!mounted || _acknowledgingManually) return;
+
+      for (final item in alerts) {
+        if (item is! Map) continue;
+
+        final alert = Map<String, dynamic>.from(item);
+        final id = int.tryParse(alert['alert_id']?.toString() ?? '');
+
+        if (id != widget.alertId) continue;
+
+        final status = alert['status']?.toString().toLowerCase();
+
+        if (status == 'resolved') {
+          _statusTimer?.cancel();
+          _escalationTimer?.cancel();
+          await _stopAlarm();
+
+          if (!mounted) return;
+
+          final messenger = ScaffoldMessenger.of(context);
+          Navigator.of(context).pop();
+
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Patient acknowledged: I AM OK'),
+            ),
+          );
+        }
+
+        break;
+      }
+    } catch (_) {
+      // Keep the alarm active if the server cannot be reached.
+    } finally {
+      _checkingStatus = false;
+    }
+  }
+
+  Future<void> _startAlarm() async {
+    if (_alarmStopped) return;
+
+    try {
+      await _alarmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _alarmPlayer.play(
+        AssetSource('audio/critical_alert.wav'),
+        volume: 1.0,
+      );
+    } catch (_) {}
+
+    if (_alarmStopped) return;
+
+    try {
+      await Vibration.vibrate(
+        pattern: [0, 500, 300, 500],
+        repeat: 0,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _stopAlarm() async {
+    _alarmStopped = true;
+
+    try {
+      await _alarmPlayer.stop();
+    } catch (_) {}
+
+    try {
+      await Vibration.cancel();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    _escalationTimer?.cancel();
+    _alarmStopped = true;
+    Vibration.cancel();
+    _alarmPlayer.stop();
+    _alarmPlayer.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(
     BuildContext context,
-    WidgetRef ref,
   ) {
+    final alertId = widget.alertId;
+    final alertData = widget.alertData;
     final reason =
         alertData['reason']?.toString() ?? 'SOS / fall-like event detected';
 
@@ -1429,6 +1875,11 @@ class EscalationAlertScreen extends ConsumerWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () async {
+                      _acknowledgingManually = true;
+                      _statusTimer?.cancel();
+                      _escalationTimer?.cancel();
+                      await _stopAlarm();
+
                       try {
                         await ApiService.resolveAlert(
                           alertId,
